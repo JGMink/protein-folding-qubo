@@ -28,7 +28,7 @@ This repository is designed to:
 
 The paper by Irbäck, Knuthson, and Mohanty presents a hybrid quantum-classical approach that:
 - Formulates lattice protein folding as a QUBO problem
-- Uses Miyazawa-Jernigan interaction potentials
+- Uses a paper-inspired contact-energy objective; the supplied 20-type coefficient table does not match the Miyazawa-Jernigan Table VI cited by the paper
 - Encodes physical constraints (connectivity, self-avoidance) as penalty terms
 - Can be solved using quantum annealers, QAOA, or classical methods
 
@@ -46,7 +46,7 @@ This project systematically demonstrates the QUBO formulation through:
 4. **Validation**: Dual calculation methods verify correctness
 5. **Toy Examples**: Small chains (4-6 residues) that can be verified by hand
 
-The implementation shows how **biological constraints** (chain connectivity, self-avoidance) and **optimization objectives** (Miyazawa-Jernigan interaction energy) are unified into a single QUBO matrix.
+The tutorial uses an illustrative three-type contact matrix. The experiments notebook uses a separate signed 20-type matrix. Both encode the same lattice constraints, but their contact coefficients have opposite sign conventions before they enter the energy function.
 
 ---
 
@@ -77,7 +77,7 @@ The total energy combines four terms:
 $$E_{\text{total}} = E_{\text{MJ}} + \lambda_1 E_1 + \lambda_2 E_2 + \lambda_3 E_3$$
 
 Where:
-- **E_MJ**: Miyazawa-Jernigan interaction energy (biological objective)
+- **E_MJ**: Nonbonded nearest-neighbor contact energy (using the supplied interaction coefficients)
 - **E₁**: One position per residue constraint
 - **E₂**: Self-avoidance constraint (no overlaps)
 - **E₃**: Chain connectivity constraint
@@ -104,7 +104,7 @@ This formulation is compatible with quantum annealers (D-Wave), QAOA, and classi
 
 ### Requirements
 ```bash
-pip install numpy matplotlib seaborn jupyter
+pip install -r requirements.txt
 ```
 
 ### Running the Tutorial Notebook
@@ -174,13 +174,19 @@ All examples verified with dual calculation methods:
 | 2 | HCHP | 16 | ✓ Pass | No (violations) |
 | 3 | HHCHPC | 36 | ✓ Pass | No (E₃ violation) |
 
-**All tests show exact agreement** between QUBO evaluation and direct energy calculation.
+These examples check agreement between QUBO and direct energy calculations. The regression suite also exhaustively checks all 65,536 binary assignments of the four-residue toy model against an independent calculation.
 
 ---
 
 ## 🔧 Running Verification Tests
 
-To verify the implementation:
+To run the regression checks:
+
+```bash
+python -m pytest -q -p no:cacheprovider tests
+```
+
+To run the standalone example checks:
 
 ```bash
 cd problem_formation_and_evaluation/QUBO_construction
@@ -193,10 +199,7 @@ cd problem_formation_and_evaluation/claude_eval
 python verify_qubo.py
 ```
 
-Expected output:
-```
-✓ ALL TESTS PASSED - IMPLEMENTATION IS CORRECT
-```
+Passing example checks establish agreement for those configurations; they do not establish that a chosen penalty vector makes every QUBO minimum physically valid.
 
 ---
 
@@ -250,7 +253,7 @@ This formulation can be used with:
 ### Background Reading
 - **QUBO formulations**: Andrew Lucas (2014) - "Ising formulations of many NP problems"
 - **HP model**: Ken Dill's work on simplified protein models
-- **Miyazawa-Jernigan**: Original 1996 paper on residue interaction potentials
+- **Miyazawa-Jernigan**: The cited folding paper identifies Table VI of the 1985 contact-potential paper as its coefficient source; the supplied notebook coefficients differ from that table
 - **QAOA**: Farhi et al. (2014) - Original quantum approximate optimization paper
 
 ---

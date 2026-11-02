@@ -197,10 +197,11 @@ def run_all_tests():
     print("="*80)
     print("FINAL SUMMARY")
     print("="*80)
-    all_passed = (
-        abs(results1['total'] - sum(expected1)) < 0.01 and
-        abs(results2['total'] - sum(expected2)) < 0.01 and
-        abs(results3['total'] - sum(expected3)) < 0.01
+    all_passed = all(
+        all(abs(results[key] - expected) < 0.01 for key, expected in zip(
+            ('E_MJ', 'E1', 'E2', 'E3'), targets))
+        for results, targets in ((results1, expected1), (results2, expected2),
+                                 (results3, expected3))
     )
     
     if all_passed:
@@ -208,7 +209,10 @@ def run_all_tests():
     else:
         print("✗ SOME TESTS FAILED")
     print()
+    return all_passed
 
 
 if __name__ == "__main__":
-    run_all_tests()
+    import sys
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.exit(0 if run_all_tests() else 1)

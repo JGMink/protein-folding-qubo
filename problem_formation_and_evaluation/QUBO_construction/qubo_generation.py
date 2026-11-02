@@ -1,5 +1,15 @@
-import numpy as np # type: ignore
-from itertools import combinations
+import numpy as np
+
+
+def validate_adjacency(adj):
+    """Require a simple undirected lattice graph with binary adjacency."""
+    adj = np.asarray(adj)
+    if (adj.ndim != 2 or adj.shape[0] == 0 or adj.shape[0] != adj.shape[1]
+            or not np.all((adj == 0) | (adj == 1))
+            or not np.array_equal(adj, adj.T)
+            or np.any(np.diag(adj))):
+        raise ValueError("adjacency must be a nonempty, symmetric, binary matrix with zero diagonal")
+    return adj
 
 def bit_index(residue_idx, position_idx, num_positions):
     """Convert (residue, position) to bit index."""
@@ -26,6 +36,7 @@ def build_E_MJ(chain, adj, interaction_matrix):
         polynomial: list of (coefficient, bit_i, bit_j) tuples
         constant: constant offset
     """
+    adj = validate_adjacency(adj)
     num_residues = len(chain)
     num_positions = adj.shape[0]
     num_bits = num_residues * num_positions
@@ -37,7 +48,13 @@ def build_E_MJ(chain, adj, interaction_matrix):
     for i in range(num_residues):
         for j in range(i + 2, num_residues):  # |i-j| > 1
             # Get interaction energy
-            interaction = interaction_matrix.get((chain[i], chain[j]), 0)
+            if ((chain[i], chain[j]) in interaction_matrix
+                    and (chain[j], chain[i]) in interaction_matrix
+                    and not np.isclose(interaction_matrix[chain[i], chain[j]],
+                                       interaction_matrix[chain[j], chain[i]])):
+                raise ValueError("contact energies must be symmetric in residue type")
+            interaction = interaction_matrix.get((chain[i], chain[j]),
+                                                 interaction_matrix.get((chain[j], chain[i]), 0))
             if interaction == 0:
                 continue
             
@@ -79,7 +96,8 @@ def print_E_MJ_details(chain, adj, interaction_matrix):
     print("Non-consecutive residue pairs:")
     for i in range(num_residues):
         for j in range(i + 2, num_residues):
-            interaction = interaction_matrix.get((chain[i], chain[j]), 0)
+            interaction = interaction_matrix.get((chain[i], chain[j]),
+                                                 interaction_matrix.get((chain[j], chain[i]), 0))
             print(f"  Pair ({i}, {j}): {chain[i]} and {chain[j]} -> C = {interaction}")
     print()
     
@@ -131,6 +149,8 @@ def build_E1(chain, num_positions):
         polynomial: list of (coefficient, bit_i, bit_j) tuples
         constant: constant offset
     """
+    if num_positions < 1:
+        raise ValueError("num_positions must be positive")
     num_residues = len(chain)
     num_bits = num_residues * num_positions
     
@@ -230,6 +250,8 @@ def build_E2(chain, num_positions):
         note: since b^2 = b for binary variables, any permutations wont show up at separate or multiplied terms
         Ex. since we have b_{0,1} * b_{1,1}, we'd technically also have b_{1,1} * b_{0,1}, but we'd just combine them, which evaluates to the same thing.
     """
+    if num_positions < 1:
+        raise ValueError("num_positions must be positive")
     num_residues = len(chain)
     num_bits = num_residues * num_positions
     
@@ -247,8 +269,7 @@ def build_E2(chain, num_positions):
                 # Add 1 to Q matrix (using i<j ordering eliminates need for 1/2 factor)
                 Q_E2[bit_i, bit_j] += 1
 
-                # Polynomial stores 0.5 for documentation (standard formula form)
-                polynomial.append((0.5, bit_i, bit_j))
+                polynomial.append((1, bit_i, bit_j))
     
     constant = 0
     return Q_E2, polynomial, constant
@@ -313,6 +334,7 @@ def build_E3(chain, adj):
         polynomial: list of (coefficient, bit_i, bit_j) tuples
         constant: constant offset
     """
+    adj = validate_adjacency(adj)
     num_residues = len(chain)
     num_positions = adj.shape[0]
     num_bits = num_residues * num_positions

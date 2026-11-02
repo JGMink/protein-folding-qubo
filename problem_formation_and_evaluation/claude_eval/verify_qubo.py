@@ -10,7 +10,7 @@ import os
 # Add the parent directory's subdirectories to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-qubo_construction_path = os.path.join(parent_dir, 'qubo_construction')
+qubo_construction_path = os.path.join(parent_dir, 'QUBO_construction')
 energy_calc_path = os.path.join(parent_dir, 'energy_calc')
 sys.path.insert(0, qubo_construction_path)
 sys.path.insert(0, energy_calc_path)
@@ -47,8 +47,11 @@ def verify_component(name, chain, bitstring, adj, C, L_value, build_func, comput
     E_qubo = evaluate_qubo_energy(bitstring, Q, const)
     
     # Compute energy directly
-    N = len(chain)
-    b = np.array([list(map(int, bitstring[i*N:(i+1)*N])) for i in range(N)])
+    N, M = len(chain), adj.shape[0]
+    bits = bitstring.replace(' ', '')
+    if len(bits) != N * M or any(bit not in '01' for bit in bits):
+        raise ValueError("bitstring has the wrong length or contains nonbinary values")
+    b = np.fromiter((int(bit) for bit in bits), dtype=int).reshape(N, M)
     
     if name == "E_MJ":
         E_direct = compute_func(chain, b, adj, C, verbose=False)
@@ -123,7 +126,8 @@ def run_comprehensive_tests():
     print(f"  Match: {'✓' if abs(E_qubo_total1 - total_E1) < 0.01 else '✗'}")
     print(f"\nValid conformation: {is_valid_conformation(breakdown1)}")
     
-    test1_pass = all_match and abs(E_qubo_total1 - total_E1) < 0.01
+    test1_pass = (all_match and abs(E_qubo_total1 - total_E1) < 0.01
+                  and is_valid_conformation(breakdown1) and np.allclose(breakdown1, (-1, 0, 0, 0)))
     
     # Test 2: Invalid configuration with constraint violations
     print("\n" + "="*80)
@@ -178,7 +182,8 @@ def run_comprehensive_tests():
     print(f"  E3 (connectivity):    {breakdown2[3]} {'✗' if breakdown2[3] > 0 else '✓'}")
     print(f"\nValid conformation: {is_valid_conformation(breakdown2)}")
     
-    test2_pass = all_match2 and abs(E_qubo_total2 - total_E2) < 0.01
+    test2_pass = (all_match2 and abs(E_qubo_total2 - total_E2) < 0.01
+                  and not is_valid_conformation(breakdown2) and np.allclose(breakdown2, (-2, 0, 0, 3)))
     
     # Test 3: Multiple violations
     print("\n" + "="*80)
@@ -215,7 +220,8 @@ def run_comprehensive_tests():
     print(f"  E3 (connectivity):    {breakdown3[3]} {'✗' if breakdown3[3] > 0 else '✓'}")
     print(f"\nValid conformation: {is_valid_conformation(breakdown3)}")
     
-    test3_pass = abs(E_qubo_total3 - total_E3) < 0.01
+    test3_pass = (abs(E_qubo_total3 - total_E3) < 0.01
+                  and not is_valid_conformation(breakdown3) and np.allclose(breakdown3, (-1, 3, 4, 2)))
     
     # Final summary
     print("\n" + "="*80)
@@ -227,7 +233,7 @@ def run_comprehensive_tests():
     
     if test1_pass and test2_pass and test3_pass:
         print("\n" + "="*80)
-        print("✓ ALL TESTS PASSED - IMPLEMENTATION IS CORRECT")
+        print("All three example checks passed")
         print("="*80)
         return True
     else:
@@ -237,5 +243,6 @@ def run_comprehensive_tests():
         return False
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding='utf-8')
     success = run_comprehensive_tests()
     sys.exit(0 if success else 1)

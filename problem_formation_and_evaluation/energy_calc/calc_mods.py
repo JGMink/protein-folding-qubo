@@ -1,4 +1,4 @@
-import numpy as np # type: ignore
+import numpy as np
 
 # === Lagrange Penalties (Globals) ===
 L1, L2, L3 = 1.0, 1.0, 1.0  # All set to 1.0 as requested
@@ -16,17 +16,20 @@ def compute_E_MJ_debug(chain, b, adj, C, verbose=False):
     """
     Compute interaction energy with optional debug output
     """
-    N = len(chain)
+    N, M = b.shape
     E = 0.0
     contacts = []
     
     for i in range(N):
         for j in range(i+2, N):  # |i-j| > 1 means j >= i+2
             a_i, a_j = chain[i], chain[j]
-            c_ij = C.get((a_i, a_j), 0.0)
+            if ((a_i, a_j) in C and (a_j, a_i) in C
+                    and not np.isclose(C[a_i, a_j], C[a_j, a_i])):
+                raise ValueError("contact energies must be symmetric in residue type")
+            c_ij = C.get((a_i, a_j), C.get((a_j, a_i), 0.0))
             if c_ij != 0:
-                for n in range(N):
-                    for m in range(N):
+                for n in range(M):
+                    for m in range(M):
                         if b[i, n] == 1 and b[j, m] == 1 and adj[n, m] == 1:
                             E += c_ij
                             contacts.append((i, j, a_i, a_j, n, m, c_ij))
@@ -51,23 +54,21 @@ def compute_E2(b):
     Ensures each site has at most one amino acid
     E2 = (1/2) * sum_n sum_{i≠j} b_{i,n} b_{j,n}
     """
-    N = b.shape[0]
+    M = b.shape[1]
     pair_count = 0
-    for n in range(N):
+    for n in range(M):
         site_occupancy = np.sum(b[:, n])
         pair_count += site_occupancy * (site_occupancy - 1)
-    # site_occupancy * (site_occupancy - 1) already counts ordered pairs
-    # so we divide by 2 to get unordered pairs, then multiply by 1/2 from formula
-    # Net effect: pair_count already has the factor of 2 built in
+    # Each unordered overlap appears twice in the ordered-pair count.
     return int(0.5 * pair_count)
 
 def compute_E3(b, adj):
     """
     Ensures chain connectivity
     """
-    N = b.shape[0]
+    N, M = b.shape
     # Create non-adjacency matrix
-    non_adj = 1 - adj - np.eye(N)
+    non_adj = 1 - adj - np.eye(M)
     
     E3 = 0.0
     for i in range(N - 1):
@@ -80,7 +81,15 @@ def total_energy(chain, bitstring, adj, C, L1=1.0, L2=1.0, L3=1.0, verbose=False
     Compute total QUBO energy with optional debug output
     """
     N = len(chain)
-    b = np.array([list(map(int, bitstring[i*N:(i+1)*N])) for i in range(N)])
+    adj = np.asarray(adj)
+    M = adj.shape[0]
+    if (adj.ndim != 2 or M == 0 or adj.shape != (M, M)
+            or not np.all((adj == 0) | (adj == 1))
+            or not np.array_equal(adj, adj.T) or np.any(np.diag(adj))):
+        raise ValueError("adjacency must be a nonempty, symmetric, binary matrix with zero diagonal")
+    if len(bitstring) != N * M or any(bit not in '01' for bit in bitstring):
+        raise ValueError(f"bitstring must contain exactly {N * M} binary digits")
+    b = np.fromiter((int(bit) for bit in bitstring), dtype=int).reshape(N, M)
     
     if verbose:
         print("\nBit matrix b:")
