@@ -7,7 +7,7 @@ An **educational implementation** and explanation of the QUBO-based protein fold
 > Physical Review E 112, 045302  
 > arXiv:2510.01890 · [arXiv abstract](https://arxiv.org/abs/2510.01890) · [DOI: 10.1103/8n7p-7lh2](https://doi.org/10.1103/8n7p-7lh2)
 
-This project provides a **pedagogical walkthrough** of their methodology using **toy examples** to make the concepts accessible and verifiable.
+This project provides a **pedagogical walkthrough** of their methodology using **toy examples** to make the concepts accessible and verifiable. It also includes a standalone serial C++ simulated annealer, portable QUBO instances, and reproducible baseline scripts.
 
 ---
 
@@ -19,6 +19,7 @@ This repository is designed to:
 2. **Demonstrate** the approach using small, tractable examples (4-6 residues)
 3. **Validate** that the implementation correctly encodes the problem
 4. **Provide** tested, reusable code for educational purposes
+5. **Measure** conventional serial QUBO optimization on documented benchmarks
 
 **This is NOT a production protein folding solver** - it's an educational tool to understand how to formulate biological optimization problems for quantum computing.
 
@@ -38,13 +39,16 @@ The paper by Irbäck, Knuthson, and Mohanty presents a hybrid quantum-classical 
 
 ## 🌱 What This Implementation Does
 
-This project systematically demonstrates the QUBO formulation through:
+This project demonstrates the QUBO formulation and serial optimization through:
 
 1. **Problem Definition**: Simplified 2D lattice model with 3 amino acid types (H, P, C)
 2. **Mathematical Formulation**: Complete derivation of all energy terms from the paper
 3. **QUBO Construction**: Step-by-step matrix building with visualization
 4. **Validation**: Dual calculation methods verify correctness
 5. **Toy Examples**: Small chains (4-6 residues) that can be verified by hand
+6. **Standalone Solver**: A C++17 Metropolis annealer that runs without Python
+7. **Benchmarks**: Exported QUBOs with sequence, penalty, and lattice metadata
+8. **Experiments**: Saved candidates, feasibility checks, and optional D-Wave sampler comparisons
 
 The tutorial uses an illustrative three-type contact matrix. The experiments notebook uses a separate signed 20-type matrix. Both encode the same lattice constraints, but their contact coefficients have opposite sign conventions before they enter the energy function.
 
@@ -62,7 +66,14 @@ protein-folding-qubo/
 │   └── claude_eval/
 │       └── verify_qubo.py            # Comprehensive verification
 ├── notebooks/
-│   └── protein_folding_qubo.ipynb    # Main tutorial notebook
+│   ├── protein_folding_qubo.ipynb    # Main tutorial notebook
+│   └── protein_folding_experiments.ipynb
+├── qubo_bench/                        # Reusable generation, export, validation, experiments
+├── benchmarks/                        # Initial portable QUBO instances
+├── solver/qubo_sa.cpp                 # Standalone C++17 serial annealer
+├── experiments/                       # Reproducible baseline results
+├── tests/                             # Correctness and solver regression tests
+├── docs/serial_solver.md              # Format, CLI, and experiment guide
 ├── papers/
 │   └── Simulated_and_Hybrid_Annealing_Algorithms...pdf  # Our own annealing writeup
 └── README.md
@@ -102,10 +113,72 @@ This formulation is compatible with quantum annealers (D-Wave), QAOA, and classi
 
 ## ⚙️ Getting Started
 
+The [serial solver guide](docs/serial_solver.md) documents every CLI option,
+the QUBO1 file format, reference-energy provenance, and experiment outputs.
+
 ### Requirements
 ```bash
 pip install -r requirements.txt
 ```
+
+Python is needed for benchmark generation, validation, and optional sampler
+comparisons. The compiled C++ solver runs independently of Python.
+
+### Standalone simulated annealing
+
+Export the initial benchmark collection, or supply a new sequence and lattice:
+
+```bash
+python -m qubo_bench.export --all --output benchmarks
+python -m qubo_bench.export --sequence CFIKDLWV --dims 3 4 --penalties 3 4 4 --output benchmarks/custom.qubo
+```
+
+Compile with a C++17 compiler and run repeated serial trials:
+
+```bash
+mkdir -p build
+c++ -std=c++17 -O2 -o build/qubo_sa solver/qubo_sa.cpp
+build/qubo_sa benchmarks/fold64.qubo --sweeps 500 --trials 8 --seed 42 \
+  --schedule geometric --temp-start 10 --temp-end 0.1 \
+  --output build/fold64.jsonl
+```
+
+On Windows, compile in an MSVC Developer PowerShell or Command Prompt:
+
+```powershell
+New-Item -ItemType Directory -Force build | Out-Null
+cl /std:c++17 /O2 /EHsc /W4 /Febuild\qubo_sa.exe /Fobuild\qubo_sa.obj solver\qubo_sa.cpp
+```
+
+Run `build\qubo_sa.exe`. The solver writes one JSON result per trial, including
+best and final bitstrings, energies, update counts, and optional checkpoints
+and first-hit timing.
+
+For independent feasibility checks and an optional D-Wave sampler comparison:
+
+```bash
+python -m qubo_bench.experiment benchmarks/fold64.qubo --solver build/qubo_sa \
+  --neal --sweeps 500 --trials 8 --seed 42 --output experiments/comparison.jsonl
+```
+
+Use `build/qubo_sa.exe` for `--solver` on Windows. This script also accepts
+multiple instances. Its `--neal-only` mode records a baseline when a C++
+executable cannot run. See the [guide](docs/serial_solver.md) for the exact
+temperature and update-budget conventions.
+
+### Initial benchmark references
+
+| Instance | Variables | Reference energy | What is established |
+|---|---:|---:|---|
+| `toy16` | 16 | −1.00 | Proven minimum of the complete QUBO by exhaustive binary enumeration. |
+| `fold64` | 64 | −2.84 | Proven minimum among valid folds; complete QUBO minimum unproven. |
+| `fold576` | 576 | −10.05 | Proven minimum among valid folds; complete QUBO minimum unproven. |
+| `witness1024` | 1,024 | −14.25 | Energy of a known valid fold; no optimum claim. |
+
+These four files are an initial collection. The export command supports more
+sequences, lattice dimensions, site orders, and penalty values. The supplied
+20-type contact table is preserved from the notebooks; it differs from the
+Miyazawa–Jernigan table cited by the paper.
 
 ### Running the Tutorial Notebook
 
@@ -185,6 +258,24 @@ To run the regression checks:
 ```bash
 python -m pytest -q -p no:cacheprovider tests
 ```
+
+The suite checks serialized QUBOs against the notebook builders and includes
+compiled-solver energy, flip, schedule, seed, and execution tests. On Windows,
+build the executable first and set `QUBO_SA_EXE` to its absolute path to enable
+those tests. Without a runnable C++ executable, those tests skip. The
+[serial solver guide](docs/serial_solver.md) includes the full test procedure
+and the current validation status.
+
+Current result in Ubuntu on WSL 2: **26 passed**, including all C++ runtime
+checks. Windows Smart App Control blocks this locally built unsigned executable;
+the [guide](docs/serial_solver.md) shows how to build and run it in WSL while
+keeping that protection enabled. The saved
+[`comparison_seed42.jsonl`](experiments/comparison_seed42.jsonl) compares eight
+500-sweep reads per instance against `dwave-samplers` 1.8.0. Both solvers
+reached the proven complete-QUBO minimum for `toy16` and the proven valid-fold
+minimum for `fold64`; neither produced a valid final fold in these small runs
+for `fold576` or `witness1024`. See the guide for final-state counts and the
+distinction between C++ incumbents and final samples.
 
 To run the standalone example checks:
 

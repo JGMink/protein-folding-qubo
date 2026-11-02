@@ -121,6 +121,19 @@ def notebook_matrix(cell_index):
     return scope['MJ_MATRIX']
 
 
+def sa_sampler_class():
+    """Accept the historical neal import or its current D-Wave namespace."""
+    try:
+        import neal
+        return neal.SimulatedAnnealingSampler
+    except ImportError:
+        try:
+            from dwave.samplers import SimulatedAnnealingSampler
+            return SimulatedAnnealingSampler
+        except ImportError:
+            pytest.skip('D-Wave simulated annealing sampler is unavailable')
+
+
 @pytest.mark.parametrize("cell", [17, 34, 57])
 def test_experiment_qubo_uses_signed_contact_energy(cell):
     scope = notebook_functions(cell)
@@ -286,7 +299,7 @@ def test_48_residue_tutorial_witness_matches_qubo_and_validator():
 
 
 def test_neal_samples_match_direct_energy_when_available():
-    neal = pytest.importorskip('neal')
+    sampler_class = sa_sampler_class()
     dimod = pytest.importorskip('dimod')
     scope = notebook_functions(17)
     scope['MJ_MATRIX'] = notebook_matrix(7)
@@ -298,7 +311,7 @@ def test_neal_samples_match_direct_energy_when_available():
     sequence, adj = 'CFIKDLWV', lattice(2, 4)
     linear, quadratic, offset = scope['build_protein_qubo'](sequence, adj, 3, 4, 4)
     bqm = dimod.BinaryQuadraticModel(linear, quadratic, offset, vartype='BINARY')
-    samples = neal.SimulatedAnnealingSampler().sample(
+    samples = sampler_class().sample(
         bqm, num_reads=5, num_sweeps=100, beta_range=(1, 50), seed=42)
     assert len(samples) == 5
     for datum in samples.data():
@@ -314,12 +327,12 @@ def test_neal_samples_match_direct_energy_when_available():
     (50, (52, 55, 57, 59, 61), (8, 4), 'ENDVTMDMDPSPCLFRIHNLPRAHSFDRFGWH'),
 ])
 def test_neal_experiment_processing_when_available(matrix_cell, func_cells, dimensions, sequence):
-    neal = pytest.importorskip('neal')
+    sampler_class = sa_sampler_class()
     dimod = pytest.importorskip('dimod')
     cells = json.loads((ROOT / 'notebooks' / 'protein_folding_experiments.ipynb').read_text(encoding='utf-8'))['cells']
     scope = {'np': np, 'defaultdict': defaultdict, 'time': time,
              'BinaryQuadraticModel': dimod.BinaryQuadraticModel,
-             'SimulatedAnnealingSampler': neal.SimulatedAnnealingSampler,
+             'SimulatedAnnealingSampler': sampler_class,
              'AA_TO_IDX': {aa: i for i, aa in enumerate('ARNDCQEGHILKMFPSTWYV')},
              'MJ_MATRIX': notebook_matrix(matrix_cell)}
     for cell in func_cells:
