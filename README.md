@@ -180,6 +180,13 @@ sequences, lattice dimensions, site orders, and penalty values. The supplied
 20-type contact table is preserved from the notebooks; it differs from the
 Miyazawa–Jernigan table cited by the paper.
 
+The separate [reference-search investigation](docs/reference_search.md) records
+time-limited SA, tabu, and Hamiltonian-path searches with independent fold
+validation. A [lattice-aware CP-SAT search](docs/cpsat_reference.md) also saves
+validated configurations, solver status, and objective bounds. These pilots
+confirmed the proven −10.05 feasible minimum for `fold576`; the best validated
+`witness1024` folding remains −14.25, with no optimality claim.
+
 ### Running the Tutorial Notebook
 
 #### Option 1: Local Jupyter
