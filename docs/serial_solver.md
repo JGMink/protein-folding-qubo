@@ -1,4 +1,10 @@
-# Standalone serial QUBO baseline
+# Historical standalone solver guide
+
+This guide documents the preserved `solver/qubo_sa.cpp` implementation and its
+original benchmark workflow. For the maintained C++ solver, start with
+[qubo_annealing/README.md](../qubo_annealing/README.md); its developer walkthrough
+is [solver_guide.md](solver_guide.md). The commands below intentionally use the
+older executable and are retained for reproducing earlier research.
 
 This is a conventional binary-variable Metropolis simulated annealer. The C++17
 executable reads a portable QUBO file and has **no Python runtime dependency**.

@@ -1,7 +1,7 @@
 # Serial solver reading list
 
 Focused sources for this solver; PT papers provide background, not implemented features.
-BibTeX is in [serial_references.bib](serial_references.bib).
+BibTeX is in [project_references.bib](project_references.bib).
 
 - [Folding lattice proteins confined on minimal grids using a quantum-inspired encoding (2025)](https://doi.org/10.1103/8n7p-7lh2) — Source model and MJ-48 protocol.
 - [Optimization by Simulated Annealing (1983)](https://doi.org/10.1126/science.220.4598.671) — Classical simulated annealing foundation.

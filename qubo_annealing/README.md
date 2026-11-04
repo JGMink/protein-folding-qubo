@@ -1,4 +1,4 @@
-# Standard serial QUBO implementation
+# C++ QUBO annealing solver and experiment tools
 
 A C++17 solver with no Python runtime dependency. Start here; see the
 [developer walkthrough](../docs/solver_guide.md), [MJ-48 audit](../docs/irback2025_audit.md),
@@ -118,3 +118,25 @@ creation, seed/trial recording, and separate summary groups for update modes.
 A generated MJ5 input was checked for penalties (1.5, 2, 2); its inexpensive
 25-sweep run recorded 57,600 proposals and the initial plus 25 stage checkpoints.
 These checks validate execution and logging, not research performance.
+
+## Benchmark locations and documentation
+
+`prepare_mj48.sh` generates `mj1.qubo` through `mj6.qubo` under
+`qubo_annealing/benchmarks/mj48/` by default. This directory is ignored by Git;
+MJ benchmarks are generated from the committed definitions and verified matrix,
+not missing from the checkout. `MJ_DIR` can select another location (which you
+must manage yourself if it is outside the ignored default directory).
+
+The filenames `fold8`, `fold24`, and `fold32` count residues. The older root
+`benchmarks/` filenames `fold64`, `fold576`, and `witness1024` count binary QUBO
+variables (8x8, 24x24, and 32x32 respectively); `toy16` has 16 variables. These
+historical names are preserved. Benchmark directories serve different workflows;
+use the input file's metadata and checksum to identify its model and penalties.
+
+The root README introduces the research repository. This README is the C++
+solver entry point; `docs/solver_guide.md` explains the modules and algorithm;
+`docs/irback2025_audit.md` records verification and reproduction. The reading list
+is `docs/serial_references.md`, with citations in `docs/project_references.bib`.
+The root `references.md` is the earlier, broader research reading list.
+`docs/serial_solver.md` is explicitly historical documentation for
+`solver/qubo_sa.cpp`, not a second guide to this implementation.

@@ -9,7 +9,15 @@ An **educational implementation** and explanation of the QUBO-based protein fold
 
 This project provides a **pedagogical walkthrough** of their methodology using **toy examples** to make the concepts accessible and verifiable. It also includes a standalone serial C++ simulated annealer, portable QUBO instances, and reproducible baseline scripts.
 
-For the standard serial C++ implementation, start with [qubo_annealing/README.md](qubo_annealing/README.md).
+For the C++ QUBO annealing solver and experiment tools, start with [qubo_annealing/README.md](qubo_annealing/README.md).
+
+Documentation: the root README covers the overall research repository;
+[solver_guide.md](docs/solver_guide.md) explains the maintained solver internals;
+[irback2025_audit.md](docs/irback2025_audit.md) records benchmark verification;
+[serial_references.md](docs/serial_references.md) and
+[project_references.bib](docs/project_references.bib) provide the focused research
+reading list and citations. The root [references.md](references.md) preserves the
+earlier broader reading list.
 
 ---
 
@@ -72,6 +80,7 @@ protein-folding-qubo/
 │   └── protein_folding_experiments.ipynb
 ├── qubo_bench/                        # Reusable generation, export, validation, experiments
 ├── benchmarks/                        # Initial portable QUBO instances
+├── qubo_annealing/                    # C++ QUBO annealing solver and experiment tools
 ├── solver/qubo_sa.cpp                 # Standalone C++17 serial annealer
 ├── experiments/                       # Reproducible baseline results
 ├── tests/                             # Correctness and solver regression tests
@@ -124,7 +133,7 @@ You can use this repository in either of two ways:
 - **Tutorial notebook:** Follow the formulation step by step with explanations,
   examples, and visualizations in Jupyter or Colab.
 
-The [serial solver guide](docs/serial_solver.md) documents every CLI option,
+The [historical standalone solver guide](docs/serial_solver.md) documents every CLI option for the older solver,
 the QUBO1 file format, reference-energy provenance, and experiment outputs.
 
 ### Requirements
@@ -200,7 +209,7 @@ starting with `irback2025_mj5`. They use the audited, explicitly selected
 `MJ85_TableVI` interaction resource on a full 4×4×3 grid. For example:
 
 ```bash
-python -m qubo_bench.export --preset irback2025_mj5 --output benchmarks/irback2025_mj5.qubo
+python -m qubo_bench.export --preset irback2025_mj5 --penalties 1.5 2 2 --output benchmarks/irback2025_mj5.qubo
 ```
 
 See the [MJ85 benchmark guide](docs/mj85_benchmarks.md) for source checks,
@@ -297,7 +306,7 @@ The suite checks serialized QUBOs against the notebook builders and includes
 compiled-solver energy, flip, schedule, seed, and execution tests. On Windows,
 build the executable first and set `QUBO_SA_EXE` to its absolute path to enable
 those tests. Without a runnable C++ executable, those tests skip. The
-[serial solver guide](docs/serial_solver.md) includes the full test procedure
+[historical standalone solver guide](docs/serial_solver.md) includes the full test procedure
 and the current validation status.
 
 Current result in Ubuntu on WSL 2: **26 passed**, including all C++ runtime

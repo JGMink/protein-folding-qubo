@@ -55,7 +55,8 @@ III A and Appendices A–B](https://juser.fz-juelich.de/record/1047045/files/8n7
 
 Paper temperature endpoints are approximately 0.952381 and 0.295303.
 Both C++ implementations originally use sequential selection and sweep-wise
-temperature schedules. Only `qubo_annealing/qubo_anneal.cpp` receives the opt-in changes;
+temperature schedules. The opt-in protocol is now in `qubo_annealing/annealing.cpp` and
+`qubo_annealing/experiment.cpp`;
 `solver/qubo_sa.cpp` and existing scripts retain their behavior. Choosing random
 selection is plausible given the paper's sweep wording, but exact author-code
 equivalence cannot be certified without their update-order details/RNG/code.
