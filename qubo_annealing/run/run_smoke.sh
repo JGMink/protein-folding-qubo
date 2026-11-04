@@ -6,7 +6,7 @@ PYTHON="${PYTHON:-python3}"
 make -C "$ROOT"
 mkdir -p "$ROOT/results"
 cd "$ROOT"
-./serial benchmarks/fold8.qubo --sweeps 2 --trials 1 --seed 7 \
+./qubo_anneal benchmarks/fold8.qubo --sweeps 2 --trials 1 --seed 7 \
     --checkpoint 1 --target -2.84 --output results/smoke.jsonl
 "$PYTHON" - <<'PY'
 import json

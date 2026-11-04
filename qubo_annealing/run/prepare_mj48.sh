@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHON="${PYTHON:-python3}"
-MJ_DIR="${MJ_DIR:-$ROOT/hpc_serial/benchmarks/mj48}"
+MJ_DIR="${MJ_DIR:-$ROOT/qubo_annealing/benchmarks/mj48}"
 if [[ $# -eq 0 ]]; then
     set -- mj1 mj2 mj3 mj4 mj5 mj6
 fi

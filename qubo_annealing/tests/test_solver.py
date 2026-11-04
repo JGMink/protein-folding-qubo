@@ -74,7 +74,7 @@ class SerialSolverTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         subprocess.run(["make"], cwd=ROOT, check=True, capture_output=True, text=True)
-        cls.executable = ROOT / "serial"
+        cls.executable = ROOT / "qubo_anneal"
 
     def call(self, path, *options):
         result = subprocess.run([str(self.executable), str(path), *map(str, options)],

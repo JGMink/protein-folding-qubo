@@ -1,5 +1,5 @@
-#ifndef HPC_SERIAL_QUBO_H
-#define HPC_SERIAL_QUBO_H
+#ifndef QUBO_MODEL_H
+#define QUBO_MODEL_H
 
 #include <string>
 #include <utility>

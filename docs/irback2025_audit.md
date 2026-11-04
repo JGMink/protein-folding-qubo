@@ -14,7 +14,7 @@ or pushed. Existing uncommitted work was preserved.
 
 Inspected `docs/mj85_benchmarks.md`, `qubo_bench/{mj85_benchmarks.py,
 mj85_table_vi.json,model.py,export.py,io.py,experiment.py}`, the MJ85 tests,
-`solver/qubo_sa.cpp`, and `hpc_serial/{serial.cpp,qubo.cpp,qubo.h,README.md,
+`solver/qubo_sa.cpp`, and `qubo_annealing/{main.cpp,qubo.cpp,qubo.h,README.md,
 run/run_serial.sh,run/run_smoke.sh,tests/test_solver.py}`.
 
 Before changes or pilots, the audit plan was: compare primary-source equations
@@ -55,7 +55,7 @@ III A and Appendices A–B](https://juser.fz-juelich.de/record/1047045/files/8n7
 
 Paper temperature endpoints are approximately 0.952381 and 0.295303.
 Both C++ implementations originally use sequential selection and sweep-wise
-temperature schedules. Only `hpc_serial/serial.cpp` receives the opt-in changes;
+temperature schedules. Only `qubo_annealing/qubo_anneal.cpp` receives the opt-in changes;
 `solver/qubo_sa.cpp` and existing scripts retain their behavior. Choosing random
 selection is plausible given the paper's sweep wording, but exact author-code
 equivalence cannot be certified without their update-order details/RNG/code.
@@ -221,7 +221,7 @@ No such run was launched.
 ## Validation, limitations, and next step
 
 - `python -m pytest -q -p no:cacheprovider --basetemp build/audit/pytest-mj tests/test_mj85_benchmarks.py`: **17 passed**. The first attempt had temp-directory permission errors; rerunning with a workspace temp directory resolved them.
-- `python3 -m unittest discover -s hpc_serial/tests -v` in WSL: **6 passed**, including existing delta/energy/reproducibility checks, staged update counts/endpoints, checkpoint energies, and random-with-replacement behavior.
+- `python3 -m unittest discover -s qubo_annealing/tests -v` in WSL: **6 passed**, including existing delta/energy/reproducibility checks, staged update counts/endpoints, checkpoint energies, and random-with-replacement behavior.
 - `python experiments/irback2025_audit/verify.py`: **210 matrix entries, 12 native assignments, 24 invalid assignments, and all eight saved trial histories passed**. The direct scorer uses the independent scan transcription.
 - `python3 experiments/irback2025_audit/check_cpp.py` in WSL: native full-size MJ1/MJ5 C++ energies and twelve flip deltas agreed with full QUBO recomputation.
 - The final standalone build passed `-Wall -Wextra` with no warnings. The earlier pilot binary differed only in explicit initialization of newly added checkpoint fields; both binary hashes are recorded.
@@ -246,7 +246,7 @@ silently added to improve pilot success.
 
 ## Reproduce and inspect
 
-From the repository root, `bash hpc_serial/run/run_irback2025_pilot.sh` builds
+From the repository root, `bash qubo_annealing/run/run_irback2025_pilot.sh` builds
 and runs the bounded pilot, regenerating its named logs and verified summary.
 The standard-library verification script also runs independently on saved logs.
 Source downloads/renderings are in ignored `build/audit`; source URLs and hashes
@@ -259,3 +259,6 @@ The frozen contact/coordinate fixture means these extra dependencies are not
 required to verify all reported energies. Witness contact indices are zero-based.
 The original global benchmark metadata was left unchanged; the witness fixture
 is explicitly separate and source-provenanced by this report.
+
+Path note: the serial implementation directory is now named `qubo_annealing/`. The historical
+audit manifest retains its original paths and hashes as recorded at audit time.

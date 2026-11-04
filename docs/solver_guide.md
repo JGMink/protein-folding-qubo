@@ -1,6 +1,6 @@
 # Serial solver developer walkthrough
 
-The maintained modular solver is `hpc_serial`; `solver/qubo_sa.cpp` and
+The maintained modular solver is `qubo_annealing`; `solver/qubo_sa.cpp` and
 `docs/serial_solver.md` describe the older standalone implementation.
 
 `main()` calls `run_experiment()`. The experiment layer parses CLI arguments,
@@ -10,7 +10,7 @@ No algorithm code depends on command-line parsing, paths, JSON, or output stream
 
 ```cpp
 #include "annealing.h"
-Qubo problem = load_qubo("hpc_serial/benchmarks/fold8.qubo");
+Qubo problem = load_qubo("qubo_annealing/benchmarks/fold8.qubo");
 AnnealingParameters parameters;
 parameters.sweeps = 1000;
 AnnealingResult result = simulated_annealing(problem, parameters, 42);
@@ -56,7 +56,7 @@ entire JSON records, including stage states, seeds, counts, events, and targets.
 - Full-size MJ1/MJ5 native C++ energy and twelve flip deltas passed.
 - Independent algorithm interface test links without experiment/main and runs
   two concurrent calls against the same problem; invalid initial state rejected.
-  Run `make -C hpc_serial check-interface` on Linux/WSL.
+  Run `make -C qubo_annealing check-interface` on Linux/WSL.
 - Regression matrix: 24 small-input cases spanning all four schedules, both
   selection modes, three starting seeds, two trials, checkpoints and targets;
   four MJ1/MJ5 settings spanning 1,000/10,000 sweeps per stage and two trials.

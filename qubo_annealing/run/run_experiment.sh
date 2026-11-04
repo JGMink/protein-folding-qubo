@@ -33,12 +33,12 @@ mkdir -p "$RESULTS_DIR"
 RUN_DIR="$RESULTS_DIR/$RUN_ID"
 # mkdir fails if the identifier already exists, including an incomplete prior run.
 mkdir "$RUN_DIR"
-sha256sum "$INPUT" "$ROOT/serial" > "$RUN_DIR/checksums.sha256"
+sha256sum "$INPUT" "$ROOT/qubo_anneal" > "$RUN_DIR/checksums.sha256"
 cp "$ROOT/Makefile" "$RUN_DIR/Makefile.snapshot"
 printf '%s
 ' "$INPUT" "$@" > "$RUN_DIR/arguments.txt"
 date -u > "$RUN_DIR/started_utc.txt"
-"$ROOT/serial" "$INPUT" "$@" --output "$RUN_DIR/trials.jsonl"
+"$ROOT/qubo_anneal" "$INPUT" "$@" --output "$RUN_DIR/trials.jsonl"
 printf 'complete
 ' > "$RUN_DIR/status.txt"
 echo "Results: $RUN_DIR/trials.jsonl"

@@ -1,12 +1,12 @@
-# Serial QUBO simulated annealing
+# Standard serial QUBO implementation
 
 A C++17 solver with no Python runtime dependency. Start here; see the
-[developer walkthrough](../docs/serial_readiness.md), [MJ-48 audit](../docs/irback2025_audit.md),
+[developer walkthrough](../docs/solver_guide.md), [MJ-48 audit](../docs/irback2025_audit.md),
 and [curated papers](../docs/serial_references.md) for details.
 
 | File | Responsibility |
 |---|---|
-| `serial.cpp` | Short executable entry point |
+| `main.cpp` | Short executable entry point |
 | `experiment.h/.cpp` | CLI validation, diagnostics, trials, JSONL output |
 | `annealing.h/.cpp` | Independent parameters, result, and Metropolis annealing |
 | `qubo.h/.cpp` | Sparse QUBO loading, energy, local fields, flip updates |
@@ -21,18 +21,18 @@ and [curated papers](../docs/serial_references.md) for details.
 From the repository root under Linux or WSL (C++17, make, Bash, Python 3):
 
 ```sh
-make -C hpc_serial
-python3 -m unittest discover -s hpc_serial/tests -v
+make -C qubo_annealing
+python3 -m unittest discover -s qubo_annealing/tests -v
 # Quick workflow check: 128 proposals, no research run.
-bash hpc_serial/run/run_experiment.sh fold8 smoke-check --sweeps 2 --seed 7 --checkpoint 1
+bash qubo_annealing/run/run_experiment.sh fold8 smoke-check --sweeps 2 --seed 7 --checkpoint 1
 # Select a small benchmark and ordinary solver parameters.
-bash hpc_serial/run/run_experiment.sh fold24 small-example --schedule geometric --temp-start 570 --temp-end 0.00885 --sweeps 10 --trials 2 --seed 42
+bash qubo_annealing/run/run_experiment.sh fold24 small-example --schedule geometric --temp-start 570 --temp-end 0.00885 --sweeps 10 --trials 2 --seed 42
 # Prepare a selected MJ-48 input, with published penalties (1.5, 2, 2).
-bash hpc_serial/run/prepare_mj48.sh mj5
+bash qubo_annealing/run/prepare_mj48.sh mj5
 # Cheap protocol example: 25 stages x 1 sweep, not a paper-length experiment.
-bash hpc_serial/run/run_experiment.sh mj5 mj-example --schedule paper25 --selection random --sweeps-per-temperature 1 --seed 42
+bash qubo_annealing/run/run_experiment.sh mj5 mj-example --schedule paper25 --selection random --sweeps-per-temperature 1 --seed 42
 # Summarize exactly the selected logs; CSV goes to standard output.
-python3 hpc_serial/analysis/summarize.py hpc_serial/results/smoke-check/trials.jsonl hpc_serial/results/small-example/trials.jsonl > hpc_serial/results/example-summary.csv
+python3 qubo_annealing/analysis/summarize.py qubo_annealing/results/smoke-check/trials.jsonl qubo_annealing/results/small-example/trials.jsonl > qubo_annealing/results/example-summary.csv
 ```
 
 These are usage examples, not a final experiment matrix or meaningful performance
@@ -53,14 +53,14 @@ needed for generation; it is not needed by the solver or single-run script.
 The runner never rewrites input coefficients. MJ aliases should point to inputs
 created by the preparation script; arbitrary supplied files retain their own model.
 
-All remaining runner arguments pass directly to `serial`; use `hpc_serial/serial --help` for the complete list. `--output` is managed by the runner. `--initial BITS`
+All remaining runner arguments pass directly to `qubo_anneal`; use `qubo_annealing/qubo_anneal --help` for the complete list. `--output` is managed by the runner. `--initial BITS`
 sets an initial binary configuration, `--target ENERGY` requests target tracking,
 and `--trials N` uses independent RNG seeds `seed, seed+1, ...`. JSONL stores the
 zero-based trial index and actual seed. Keep seeds within the uint64 range,
 including increments for repetitions. A direct solver command remains supported:
 
 ```sh
-hpc_serial/serial hpc_serial/benchmarks/fold8.qubo --sweeps 2 --seed 7
+qubo_annealing/qubo_anneal qubo_annealing/benchmarks/fold8.qubo --sweeps 2 --seed 7
 ```
 
 Direct `--output` overwrites its destination; use the runner for protected outputs.
@@ -69,12 +69,12 @@ run ID. Runs execute serially:
 
 ```sh
 for seed in 7 8; do
-    bash hpc_serial/run/run_experiment.sh fold8 "example-seed-$seed" --sweeps 2 --seed "$seed"
+    bash qubo_annealing/run/run_experiment.sh fold8 "example-seed-$seed" --sweeps 2 --seed "$seed"
 done
 ```
 
 The summarizer accepts explicit file lists or shell-expanded globs such as
-`hpc_serial/results/example-seed-*/trials.jsonl`. It groups by input path,
+`qubo_annealing/results/example-seed-*/trials.jsonl`. It groups by input path,
 benchmark, schedule, selection, sweeps/stage, temperatures, total sweeps,
 checkpoint interval, initial configuration, and target. It reports trial counts,
 best and final energy statistics, mean runtime, and numeric target-hit rates.

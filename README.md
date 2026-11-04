@@ -9,7 +9,7 @@ An **educational implementation** and explanation of the QUBO-based protein fold
 
 This project provides a **pedagogical walkthrough** of their methodology using **toy examples** to make the concepts accessible and verifiable. It also includes a standalone serial C++ simulated annealer, portable QUBO instances, and reproducible baseline scripts.
 
-For the maintained modular C++ solver, start with [hpc_serial/README.md](hpc_serial/README.md).
+For the standard serial C++ implementation, start with [qubo_annealing/README.md](qubo_annealing/README.md).
 
 ---
 

@@ -1,5 +1,5 @@
-#ifndef HPC_SERIAL_ANNEALING_H
-#define HPC_SERIAL_ANNEALING_H
+#ifndef QUBO_ANNEALING_H
+#define QUBO_ANNEALING_H
 #include "qubo.h"
 #include <cstdint>
 

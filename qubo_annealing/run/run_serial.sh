@@ -48,12 +48,12 @@ for benchmark in "${BENCHMARKS[@]}"; do
         for sweeps in "${sweeps_list[@]}"; do
             output="$OUTPUT_DIR/${benchmark}_${schedule}_${sweeps}.jsonl"
             if [[ -n "$target" ]]; then
-                ./serial "benchmarks/${benchmark}.qubo" \
+                ./qubo_anneal "benchmarks/${benchmark}.qubo" \
                     --schedule "$schedule" --temp-start "$temp_start" --temp-end "$temp_end" \
                     --sweeps "$sweeps" --trials "$TRIALS" --seed "$SEED" \
                     --checkpoint "$CHECKPOINT" --target "$target" --output "$output"
             else
-                ./serial "benchmarks/${benchmark}.qubo" \
+                ./qubo_anneal "benchmarks/${benchmark}.qubo" \
                     --schedule "$schedule" --temp-start "$temp_start" --temp-end "$temp_end" \
                     --sweeps "$sweeps" --trials "$TRIALS" --seed "$SEED" \
                     --checkpoint "$CHECKPOINT" --output "$output"

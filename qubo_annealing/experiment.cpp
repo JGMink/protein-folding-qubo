@@ -71,7 +71,7 @@ static std::string benchmark_id(const std::string& path) {
 
 // Print the supported command-line modes and experiment settings.
 static void usage() {
-    std::cout << "Usage: serial INSTANCE.qubo [options]\n"
+    std::cout << "Usage: qubo_anneal INSTANCE.qubo [options]\n"
               << "  --sweeps N --trials N --seed N --initial BITS\n"
               << "  --schedule linear|geometric|fixed|paper25 --temp-start T --temp-end T\n"
               << "  --selection sequential|random --sweeps-per-temperature N (paper25)\n"
@@ -241,7 +241,7 @@ int run_experiment(int argc, char** argv) {
         }
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << "serial: " << error.what() << '\n';
+        std::cerr << "qubo_anneal: " << error.what() << '\n';
         return 2;
     }
 }

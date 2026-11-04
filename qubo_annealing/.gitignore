@@ -1,4 +1,5 @@
 /serial
+/qubo_anneal
 __pycache__/
 *.pyc
 

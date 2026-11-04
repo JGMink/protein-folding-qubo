@@ -12,7 +12,7 @@ from qubo_bench.io import read_qubo
 from qubo_bench.model import energy
 from verify import NATIVE,bits_for
 
-exe='hpc_serial/serial'
+exe='qubo_annealing/qubo_anneal'
 for short,topology in [('mj1','A'),('mj5','B')]:
     path=f'build/audit/{short}.qubo'
     q,n,offset,meta=read_qubo(path)

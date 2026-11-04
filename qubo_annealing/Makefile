@@ -2,13 +2,13 @@ CXX = c++
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
 
 .PHONY: all clean check-interface
-all: serial
+all: qubo_anneal
 
-serial: serial.cpp experiment.cpp experiment.h annealing.cpp annealing.h qubo.cpp qubo.h
-	$(CXX) $(CXXFLAGS) -o $@ serial.cpp experiment.cpp annealing.cpp qubo.cpp
+qubo_anneal: main.cpp experiment.cpp experiment.h annealing.cpp annealing.h qubo.cpp qubo.h
+	$(CXX) $(CXXFLAGS) -o $@ main.cpp experiment.cpp annealing.cpp qubo.cpp
 
 clean:
-	rm -f serial
+	rm -f qubo_anneal
 
 # Link the reusable algorithm without the CLI, and exercise independent callers.
 check-interface:
