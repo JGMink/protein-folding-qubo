@@ -29,6 +29,15 @@ def annotate(record, coefficients, n, offset, metadata):
         category, value = reference["category"], reference["energy"]
         record["reference_category"] = category
         record["reference_energy"] = value
+        if "status" in reference:
+            record["reference_status"] = reference["status"]
+            if reference["status"] == "reported_exhaustively_established":
+                observed = None if not valid else round(100 * contact)
+                published = round(100 * value)
+                record["matches_published_reference_energy"] = observed == published
+                record["below_published_reference_investigate"] = (
+                    observed is not None and observed < published)
+                return record
         if category == "complete_qubo_global_minimum":
             record["reached_proven_qubo_minimum"] = record["best_energy" if record["solver"] == "cpp" else "final_energy"] <= value + 1e-6
         elif category == "feasible_fold_minimum":

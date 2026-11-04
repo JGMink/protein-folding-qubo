@@ -1,0 +1,4 @@
+# Preserve checksum-sensitive benchmark resources and retained audit evidence.
+*.qubo -text
+qubo_bench/mj85_table_vi.json -text
+experiments/irback2025_audit/*.jsonl -text

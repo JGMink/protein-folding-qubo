@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from .io import write_qubo
 from .model import build, validate
+from .mj85_benchmarks import BENCHMARKS, definition
 
 
 PRESETS = {
@@ -22,8 +23,13 @@ PRESETS = {
 }
 
 
-def export(path, sequence, dims, order, model, penalties, reference=None):
+def export(path, sequence, dims, order, model, penalties, reference=None, benchmark=None):
     coefficients, n, offset, metadata = build(sequence, dims, penalties, model, order)
+    if benchmark is not None:
+        metadata["benchmark_id"] = benchmark["id"]
+        metadata["topology"] = benchmark["topology"]
+        metadata["full_occupancy"] = benchmark["full_occupancy"]
+        metadata["reference"] = benchmark["reference"]
     if reference is not None:
         category, value, path_witness = reference
         metadata["reference"] = {"category": category, "energy": value}
@@ -43,11 +49,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
     choice.add_argument("--all", action="store_true", help="export the initial benchmark collection")
-    choice.add_argument("--preset", choices=PRESETS)
+    choice.add_argument("--preset", choices=tuple(PRESETS) + tuple(BENCHMARKS))
     choice.add_argument("--sequence", help="export an additional protein sequence")
     parser.add_argument("--dims", nargs="+", type=int, help="2D or 3D lattice dimensions")
     parser.add_argument("--order", choices=("row-major", "column-major", "x-fastest"))
-    parser.add_argument("--model", choices=("signed20", "toy"), default="signed20")
+    parser.add_argument("--model", choices=("signed20", "toy", "MJ85_TableVI"), default="signed20")
     parser.add_argument("--penalties", nargs=3, type=float, default=(3, 4, 4))
     parser.add_argument("--output", type=Path, required=True, help="file, or directory with --all")
     args = parser.parse_args()
@@ -59,9 +65,15 @@ def main():
                               (category, value, path))
             print(f"{target}: {n} variables, {terms} terms")
     elif args.preset:
-        sequence, dims, order, model, penalties, category, value, path = PRESETS[args.preset]
-        n, terms = export(args.output, sequence, dims, order, model, penalties,
-                          (category, value, path))
+        if args.preset in BENCHMARKS:
+            benchmark = definition(args.preset)
+            n, terms = export(args.output, benchmark["sequence"], benchmark["lattice_dimensions"],
+                              benchmark["site_order"], benchmark["contact_model"], args.penalties,
+                              benchmark=benchmark)
+        else:
+            sequence, dims, order, model, penalties, category, value, path = PRESETS[args.preset]
+            n, terms = export(args.output, sequence, dims, order, model, penalties,
+                              (category, value, path))
         print(f"{args.output}: {n} variables, {terms} terms")
     else:
         if not args.dims or len(args.dims) not in (2, 3):

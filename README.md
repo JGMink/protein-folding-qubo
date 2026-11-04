@@ -9,6 +9,8 @@ An **educational implementation** and explanation of the QUBO-based protein fold
 
 This project provides a **pedagogical walkthrough** of their methodology using **toy examples** to make the concepts accessible and verifiable. It also includes a standalone serial C++ simulated annealer, portable QUBO instances, and reproducible baseline scripts.
 
+For the maintained modular C++ solver, start with [hpc_serial/README.md](hpc_serial/README.md).
+
 ---
 
 ## 🎯 Purpose of This Project
@@ -113,18 +115,31 @@ This formulation is compatible with quantum annealers (D-Wave), QAOA, and classi
 
 ## ⚙️ Getting Started
 
+You can use this repository in either of two ways:
+
+- **Command-line experiment:** Generate or reuse a QUBO, run the standalone C++
+  annealer, and validate the saved results with the Python experiment script.
+  This covers the complete benchmark workflow without opening a notebook or
+  installing Jupyter. The D-Wave sampler comparison is optional.
+- **Tutorial notebook:** Follow the formulation step by step with explanations,
+  examples, and visualizations in Jupyter or Colab.
+
 The [serial solver guide](docs/serial_solver.md) documents every CLI option,
 the QUBO1 file format, reference-energy provenance, and experiment outputs.
 
 ### Requirements
+
+The command-line export and result-validation scripts use Python's standard
+library; the solver needs only a C++17 compiler and runs independently of
+Python. For the optional D-Wave sampler comparison, install `dimod` and
+`dwave-samplers`. For tests, also install `numpy` and `pytest`.
+The notebook and plotting dependencies are listed in `requirements.txt`:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-Python is needed for benchmark generation, validation, and optional sampler
-comparisons. The compiled C++ solver runs independently of Python.
-
-### Standalone simulated annealing
+### Command-line experiment (no notebook required)
 
 Export the initial benchmark collection, or supply a new sequence and lattice:
 
@@ -180,6 +195,18 @@ sequences, lattice dimensions, site orders, and penalty values. The supplied
 20-type contact table is preserved from the notebooks; it differs from the
 Miyazawa–Jernigan table cited by the paper.
 
+The six published 48-residue MJ instances are available as separate presets,
+starting with `irback2025_mj5`. They use the audited, explicitly selected
+`MJ85_TableVI` interaction resource on a full 4×4×3 grid. For example:
+
+```bash
+python -m qubo_bench.export --preset irback2025_mj5 --output benchmarks/irback2025_mj5.qubo
+```
+
+See the [MJ85 benchmark guide](docs/mj85_benchmarks.md) for source checks,
+the printed Trp/Tyr residue order, independent scoring, and the status of the
+published reference energies.
+
 The separate [reference-search investigation](docs/reference_search.md) records
 time-limited SA, tabu, and Hamiltonian-path searches with independent fold
 validation. A [lattice-aware CP-SAT search](docs/cpsat_reference.md) also saves
@@ -187,7 +214,7 @@ validated configurations, solver status, and objective bounds. These pilots
 confirmed the proven −10.05 feasible minimum for `fold576`; the best validated
 `witness1024` folding remains −14.25, with no optimality claim.
 
-### Running the Tutorial Notebook
+### Running the tutorial notebook
 
 #### Option 1: Local Jupyter
 ```bash

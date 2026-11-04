@@ -1,11 +1,33 @@
 """Sparse equivalent of the signed-contact notebook QUBO construction."""
 
 from collections import defaultdict
+import hashlib
 import json
 from pathlib import Path
 
 
 DATA = json.loads((Path(__file__).parent / "contact_matrices.json").read_text(encoding="utf-8"))
+
+
+def load_mj85_table_vi():
+    """Load the separately audited, signed 1985 Table VI in printed order."""
+    path = Path(__file__).parent / "mj85_table_vi.json"
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = (path.parent / "mj85_table_vi.sha256").read_text(encoding="ascii").strip()
+    if digest != expected:
+        raise ValueError("MJ85 Table VI resource checksum mismatch")
+    resource = json.loads(path.read_text(encoding="utf-8"))
+    alphabet = resource["alphabet"]
+    triangle = resource["lower_triangle_hundredths"]
+    if (alphabet != "CMFILVWYAGTSQNEDHRKP" or len(set(alphabet)) != 20
+            or len(triangle) != 20 or any(len(row) != i + 1 for i, row in enumerate(triangle))
+            or any(type(value) is not int for row in triangle for value in row)):
+        raise ValueError("invalid MJ85 Table VI labels or triangular values")
+    values = [[triangle[max(i, j)][min(i, j)] / 100 for j in range(20)]
+              for i in range(20)]
+    if values[0][0] != -1.06 or values[-1][-1] != 0.26:
+        raise ValueError("MJ85 Table VI source anchors disagree")
+    return {"alphabet": alphabet, "values": values, "resource_sha256": digest}
 
 
 def lattice(dims, order="row-major"):
@@ -33,16 +55,17 @@ def lattice(dims, order="row-major"):
 def build(sequence, dims, penalties=(3.0, 4.0, 4.0), model="signed20", order="row-major"):
     """Construct E_contact + L1*E1 + L2*E2 + L3*E3 as an upper QUBO.
 
-    signed20 is the supplied signed notebook table. toy uses the tutorial's
-    positive contact strengths after negation. No formulation is altered.
+    signed20 is the supplied signed notebook table. MJ85_TableVI is the
+    separately audited 1985 Table VI. toy uses the tutorial's positive
+    contact strengths after negation. No formulation is altered.
     """
     if not sequence:
         raise ValueError("sequence cannot be empty")
     if len(penalties) != 3 or any(p <= 0 for p in penalties):
         raise ValueError("three positive penalties are required")
-    if model not in DATA:
+    if model != "MJ85_TableVI" and model not in DATA:
         raise ValueError(f"unknown contact model: {model}")
-    contact = DATA[model]
+    contact = load_mj85_table_vi() if model == "MJ85_TableVI" else DATA[model]
     alphabet = contact["alphabet"]
     indices = {aa: i for i, aa in enumerate(alphabet)}
     if any(aa not in indices for aa in sequence):
@@ -88,6 +111,8 @@ def build(sequence, dims, penalties=(3.0, 4.0, 4.0), model="signed20", order="ro
         "coordinates": coords, "lattice_edges": edges,
         "variable_order": "residue-major: index = residue * sites + site",
     }
+    if model == "MJ85_TableVI":
+        metadata["contact_resource_sha256"] = contact["resource_sha256"]
     return {key: value for key, value in q.items() if value != 0}, n_res * n_sites, l1 * n_res, metadata
 
 

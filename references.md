@@ -1,5 +1,8 @@
 # References
 
+The focused, source-linked serial solver reading list and BibTeX are in
+[docs/serial_references.md](docs/serial_references.md).
+
 **Lucas** — "Ising formulations of many NP problems." *Frontiers in Physics*, 2014.
 Shows how a huge class of combinatorial problems (graph coloring, TSP, Sudoku, etc.) can be rewritten as Ising/QUBO problems, making them solvable by annealing hardware. The theoretical backbone for why QUBO is a universal formulation.
 

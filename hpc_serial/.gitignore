@@ -1,0 +1,7 @@
+/serial
+__pycache__/
+*.pyc
+
+# Disposable runs and locally generated MJ inputs.
+/results/
+/benchmarks/mj48/

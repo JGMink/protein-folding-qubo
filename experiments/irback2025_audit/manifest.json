@@ -1,0 +1,29 @@
+{
+  "compiler": "g++ 15.2.0, -std=c++17 -O2 -Wall -Wextra",
+  "cpu": "AMD Ryzen 7 7800X3D",
+  "environment": "WSL Ubuntu; Linux 6.18.54.1-microsoft-standard-WSL2",
+  "seeds": [
+    42,
+    43
+  ],
+  "selection": "uniform random with replacement",
+  "penalties": [
+    1.5,
+    2,
+    2
+  ],
+  "beta": "1.05**i, i=1..25",
+  "hashes": {
+    "hpc_serial/serial.cpp": "a80d6533071745e90885141f0858d892adddd35dc623b908cfa39707b3e05dd3",
+    "hpc_serial/qubo.cpp": "a31292a12d8d49be115a7474468bad5d8b20c5d1ad5374e2dfd34d82be3f5a84",
+    "hpc_serial/qubo.h": "a1cc74d9753401ceeac20a8fa68fd5eee3df960d7ce4ea56dc490e3500ee7366",
+    "hpc_serial/serial": "fb2547bdd11610537d54a437218f4acf9d764134c79e1d3eec99859fa8e2bceb",
+    "build/audit/serial": "6e07826340417edf39d7810ec4946554a9af0fef36826afbf3f2c8fa20b474d5",
+    "build/audit/mj1.qubo": "fa34fe1bc23d9b15ffb33e9b0f66f386729f513d7b703765fd9a506a13392593",
+    "build/audit/mj5.qubo": "6cd0dd40f570a34abce423831e2db5d71b0518ff17465b0fce401b14d0acfee4",
+    "experiments\\irback2025_audit\\mj1_1000.jsonl": "9877eb4d46f5d6bb9d32abf64c736b015a647478ac7d20d6c9dbe3caa77a0ab5",
+    "experiments\\irback2025_audit\\mj1_10000.jsonl": "0773fcd439532f1aa2a515cb08025a747a1167e6f93ff2b7c8e180e43af2c6cc",
+    "experiments\\irback2025_audit\\mj5_1000.jsonl": "84a1b5bc2cd24d7d9c91d2fbebadbf3d9f0ca2deff3c77ff36f166998d0d6170",
+    "experiments\\irback2025_audit\\mj5_10000.jsonl": "abeb57ecebda27277e436856329167a0a26b2d61dd83ec261ca5137d5360e957"
+  }
+}
