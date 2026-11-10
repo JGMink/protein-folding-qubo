@@ -13,23 +13,21 @@ FoldTracker fold_tracker_start(const FoldLayout& layout, const std::vector<unsig
 }
 
 // Only the flipped bit's residue changes, so updating `placed` is O(1).
-void fold_note_flip(FoldTracker& tracker, int bit_index, int change) {
+void fold_update_counts(FoldTracker& tracker, int bit_index, int change) {
     int& count = tracker.ones_in_residue[bit_index / tracker.layout->sites];  // the flipped bit's residue
     tracker.placed -= (count == 1);  // leaving or entering "exactly one" changes `placed`
     count += change;
     tracker.placed += (count == 1);
 }
 
+// The count test is free; the O(n) scan is only reached when every residue is placed exactly once.
 bool fold_is_valid_now(const FoldTracker& tracker, const std::vector<unsigned char>& state) {
     return tracker.placed == tracker.layout->residues && is_valid_fold(*tracker.layout, state);
 }
 
-// Tests run from cheapest to most expensive, so the O(n) scan is rarely reached.
-bool fold_is_new_record(const FoldTracker& tracker, const std::vector<unsigned char>& state, double energy_now) {
-    if (tracker.placed != tracker.layout->residues) return false;  // some residue unplaced, so not valid
-    if (!tracker.history.empty() && energy_now >= tracker.history.back().energy - 1e-9)
-        return false;  // not lower than the last record
-    return is_valid_fold(*tracker.layout, state);
+// "Lower" means by more than 1e-9, so floating-point noise never counts as a new record.
+bool fold_beats_record(const FoldTracker& tracker, double energy_now) {
+    return tracker.history.empty() || energy_now < tracker.history.back().energy - 1e-9;
 }
 
 void fold_record(FoldTracker& tracker, const Qubo& problem, const std::vector<unsigned char>& state, const Event& when) {

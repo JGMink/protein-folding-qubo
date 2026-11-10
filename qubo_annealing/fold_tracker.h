@@ -20,14 +20,14 @@ struct FoldTracker {
 // Start tracking from `state`. `layout` must outlive the tracker.
 FoldTracker fold_tracker_start(const FoldLayout& layout, const std::vector<unsigned char>& state);
 
-// Call after every accepted flip of bit `bit_index` (change = +1 for 0->1, -1 for 1->0).
-void fold_note_flip(FoldTracker& tracker, int bit_index, int change);
+// Bookkeeping only, not a check: call after every accepted flip of bit `bit_index` (change = +1 for 0->1, -1 for 1->0).
+void fold_update_counts(FoldTracker& tracker, int bit_index, int change);
 
-// Is `state` a valid fold right now? Cheap test first; the O(n) scan only runs if every residue is placed.
+// Is `state` a valid fold right now? Cheap count test first; the O(n) scan only runs if every residue is placed.
 bool fold_is_valid_now(const FoldTracker& tracker, const std::vector<unsigned char>& state);
 
-// True if `state` (running energy `energy_now`) is a valid fold lower than every valid fold recorded so far.
-bool fold_is_new_record(const FoldTracker& tracker, const std::vector<unsigned char>& state, double energy_now);
+// Is `energy_now` lower than every valid fold recorded so far (or has none been recorded yet)?
+bool fold_beats_record(const FoldTracker& tracker, double energy_now);
 
 // Log `state` as the new record, stamped with `when`. The energy is recomputed in full, so it has no rounding drift.
 void fold_record(FoldTracker& tracker, const Qubo& problem, const std::vector<unsigned char>& state, const Event& when);

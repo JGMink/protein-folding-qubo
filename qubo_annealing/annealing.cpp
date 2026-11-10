@@ -87,7 +87,7 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
     FoldTracker tracker;
     if (parameters.fold) {
         tracker = fold_tracker_start(*parameters.fold, state);
-        if (fold_is_new_record(tracker, state, current_energy))  // the starting state may already be a valid fold
+        if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))  // the start may already be valid
             fold_record(tracker, problem, state, {0, 0, elapsed()});
         fold_fill_validity(tracker, state, result.progress.front());  // the sweep-0 sample pushed above
     }
@@ -126,10 +126,10 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
                 result.first_hit = {sweep + 1, attempted_updates, elapsed()};
             }
 
-            // Fold measurements: update the tracker, then log a new record-low valid fold.
+            // Fold measurements: keep the tracker's counts current, then log a new record-low valid fold.
             if (parameters.fold) {
-                fold_note_flip(tracker, bit_index, change);
-                if (fold_is_new_record(tracker, state, current_energy))
+                fold_update_counts(tracker, bit_index, change);
+                if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))
                     fold_record(tracker, problem, state, {sweep + 1, attempted_updates, elapsed()});
             }
         }
