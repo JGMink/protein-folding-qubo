@@ -22,7 +22,8 @@ void fold_update_counts(FoldTracker& tracker, int bit_index, int change) {
 
 // The count test is free; the O(n) scan is only reached when every residue is placed exactly once.
 bool fold_is_valid_now(const FoldTracker& tracker, const std::vector<unsigned char>& state) {
-    return tracker.placed == tracker.layout->residues && is_valid_fold(*tracker.layout, state);
+    return tracker.placed == tracker.layout->residues  // the counts cover only rule 1: one site per residue
+           && is_valid_fold(*tracker.layout, state);   // the scan also checks shared sites and chain adjacency
 }
 
 // "Lower" means by more than 1e-9, so floating-point noise never counts as a new record.

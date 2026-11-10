@@ -191,10 +191,12 @@ int main(int argc, char** argv) {
     def test_first_best_and_optional_target(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "one.qubo"
-            path.write_text('QUBO1\nn 1\noffset 2.5\nmeta {}\nq 0 0 1\n', encoding="utf-8")
-            record = self.call(path, "--initial", "1", "--schedule", "fixed",
+            # One residue on two adjacent sites. Bit 1 costs 100, so at T=1 its flip is always rejected.
+            path.write_text('QUBO1\nn 2\noffset 2.5\nmeta {"sequence":"A","lattice_edges":[[0,1]]}\n'
+                            'q 0 0 1\nq 1 1 100\n', encoding="utf-8")
+            record = self.call(path, "--initial", "10", "--schedule", "fixed",
                                "--temp-start", 1, "--sweeps", 1, "--target", 2.5)[0]
-            self.assertEqual(record["initial_bits"], "1")
+            self.assertEqual(record["initial_bits"], "10")
             self.assertEqual(record["target_energy"], 2.5)
             self.assertTrue(record["target_reached"])
             self.assertEqual(record["best_energy"], 2.5)
@@ -227,7 +229,7 @@ int main(int argc, char** argv) {
         # can flip a bit repeatedly, while sequential selection flips every bit.
         with tempfile.TemporaryDirectory() as directory:
             empty=Path(directory)/'empty.qubo'
-            empty.write_text('QUBO1\nn 16\noffset 0\nmeta {}\n')
+            empty.write_text('QUBO1\nn 16\noffset 0\nmeta {"sequence":"AB","lattice_edges":[[0,1]]}\n')
             a=self.call(empty,'--initial','0'*16,'--sweeps',1,'--seed',19,
                         '--selection','random')[0]
             b=self.call(empty,'--initial','0'*16,'--sweeps',1)[0]
@@ -271,10 +273,7 @@ int main(int argc, char** argv) {
             path = self.two_residue_file(directory, "two.qubo")
             options = ("--initial", "0000", "--schedule", "fixed", "--temp-start", 0.001,
                        "--sweeps", 3, "--checkpoints", 3)
-            record = self.call(path, *options, "--fold-metrics")[0]
-            plain = self.call(path, *options)[0]
-        self.assertNotIn("valid_history", plain)
-        self.assertNotIn("valid", plain["progress"][0])
+            record = self.call(path, *options)[0]
         history = record["valid_history"]
         self.assertEqual(len(history), 1)
         self.assertEqual((history[0]["energy"], history[0]["sweep"], history[0]["attempted_updates"]), (0, 2, 6))
@@ -292,10 +291,6 @@ int main(int argc, char** argv) {
         self.assertEqual([p["acceptance_rate"] for p in points[1:]], [0.5, 0.5, 0.0])
         self.assertEqual([p["mean_energy"] for p in points[1:]], [1, 0, 0])
         self.assertEqual([p["valid_fraction"] for p in points[1:]], [0, 1, 1])
-        # Measuring must not change the trajectory.
-        for field in ("attempted_updates", "accepted_updates", "best_bits", "final_bits",
-                      "best_energy", "final_energy"):
-            self.assertEqual(record[field], plain[field])
 
     def test_fold_metrics_start_states_and_missing_metadata(self):
         path = ROOT / "benchmarks/fold8.qubo"
@@ -306,25 +301,25 @@ int main(int argc, char** argv) {
             reference[residue * sites + site] = "1"
         reference = "".join(reference)
         # A known valid fold as the starting state is recorded at sweep 0.
-        record = self.call(path, "--initial", reference, "--sweeps", 0, "--fold-metrics")[0]
+        record = self.call(path, "--initial", reference, "--sweeps", 0)[0]
         self.assertEqual(len(record["valid_history"]), 1)
         self.assertEqual(record["valid_history"][0]["sweep"], 0)
         self.assertAlmostEqual(record["best_valid_energy"], -2.84, places=6)
         self.assertEqual(record["best_valid_bits"], reference)
         self.assertTrue(record["progress"][0]["valid"])
         # All zeros is not a fold, so nothing valid has been seen.
-        record = self.call(path, "--initial", "0" * n, "--sweeps", 0, "--fold-metrics")[0]
+        record = self.call(path, "--initial", "0" * n, "--sweeps", 0)[0]
         self.assertEqual(record["valid_history"], [])
         self.assertIsNone(record["best_valid_energy"])
         self.assertIsNone(record["first_valid"])
         self.assertFalse(record["best_is_valid"])
         self.assertFalse(record["progress"][0]["valid"])
-        # Without lattice metadata the request fails with an error instead of guessing.
+        # Without lattice metadata the file is rejected with an error instead of guessing.
         with tempfile.TemporaryDirectory() as directory:
             bare = Path(directory) / "bare.qubo"
             bare.write_text("QUBO1\nn 1\noffset 0\nmeta {}\nq 0 0 1\n", encoding="utf-8")
             with self.assertRaises(subprocess.CalledProcessError):
-                self.call(bare, "--fold-metrics")
+                self.call(bare)
 
     def test_fold_metrics_match_independent_python_validation(self):
         path = ROOT / "benchmarks/fold8.qubo"
@@ -333,7 +328,7 @@ int main(int argc, char** argv) {
         found = 0
         for temperature_end in (0.1, 3.0):  # a cold run usually folds; a hotter one often does not
             for record in self.call(path, "--sweeps", 300, "--trials", 3, "--seed", 5, "--temp-start", 10,
-                                    "--temp-end", temperature_end, "--checkpoints", 6, "--fold-metrics"):
+                                    "--temp-end", temperature_end, "--checkpoints", 6):
                 self.assertEqual([p["sweep"] for p in record["progress"]], [0, 50, 100, 150, 200, 250, 300])
                 for prefix in ("best", "final"):
                     self.assertEqual(record[f"{prefix}_is_valid"],
@@ -369,13 +364,13 @@ int main(int argc, char** argv) {
                 path = self.two_residue_file(directory, f"{name}.qubo", reference)
                 log = Path(directory) / f"{name}.jsonl"
                 self.call(path, "--initial", "0000", "--schedule", "fixed", "--temp-start", 0.001,
-                          "--sweeps", 3, "--fold-metrics", "--output", log)
+                          "--sweeps", 3, "--output", log)
                 result = subprocess.run([sys.executable, str(script), str(log)],
                                         check=True, capture_output=True, text=True)
                 rows[name] = list(csv.DictReader(io.StringIO(result.stdout)))[0]
-            plain = Path(directory) / "plain.jsonl"
-            self.call(path, "--sweeps", 1, "--output", plain)
-            rejected = subprocess.run([sys.executable, str(script), str(plain)], capture_output=True, text=True)
+            old_log = Path(directory) / "old.jsonl"
+            old_log.write_text('{"input": "x"}\n', encoding="utf-8")  # a record without fold metrics
+            rejected = subprocess.run([sys.executable, str(script), str(old_log)], capture_output=True, text=True)
         proven, witness = rows["proven"], rows["witness"]
         self.assertEqual((proven["ground_state_found"], proven["ground_state_sweep"],
                           proven["ground_state_attempted_updates"]), ("True", "2", "6"))

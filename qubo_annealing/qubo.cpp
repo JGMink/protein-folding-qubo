@@ -15,8 +15,10 @@ static bool read_line(std::istream& in, std::string& line) {
     return true;
 }
 
-// Parse a QUBO1 file: header, "n <count>", "offset <value>", a "meta {...}" line (checked
-// for presence only), then "q i j coefficient" lines with i <= j. i == j fills the diagonal;
+static FoldLayout parse_fold_layout(const std::string& meta, int n);  // defined below
+
+// Parse a QUBO1 file: header, "n <count>", "offset <value>", a "meta {...}" line (its "sequence" and
+// "lattice_edges" become the fold layout), then "q i j coefficient" lines with i <= j. i == j fills the diagonal;
 // i < j is stored in both bits' neighbor lists. Rejects duplicates, out-of-range indices,
 // and non-finite numbers. `throw` jumps out like a goto-error; run_experiment catches it.
 // (`istringstream row(line); row >> a >> b` is roughly sscanf on one line.)
@@ -40,6 +42,7 @@ Qubo load_qubo(const std::string& path) {
     }
     if (!read_line(in, line) || line.rfind("meta ", 0) != 0)
         throw std::runtime_error("missing metadata record");
+    q.fold = parse_fold_layout(line.substr(5), q.n);  // everything after "meta "
     q.diagonal.assign(q.n, 0);
     q.neighbors.resize(q.n);
     std::unordered_set<std::uint64_t> seen;
@@ -109,24 +112,14 @@ static std::size_t value_start(const std::string& meta, const std::string& key) 
     return at < meta.size() ? at : std::string::npos;
 }
 
-// Build a FoldLayout from the meta line (4th line): chain length = letters in "sequence", sites = n / chain length,
-// "lattice_edges" fills next_to. Strict: anything unexpected throws, so a wrong layout can't mislabel a fold.
-FoldLayout load_fold_layout(const std::string& path, int n) {
-    std::ifstream in(path);
-    if (!in) throw std::runtime_error("cannot open QUBO input: " + path);
-    std::string line;
-    // Header, "n", and "offset" come first; load_qubo is what validates them.
-    for (int skipped = 0; skipped < 3; ++skipped)
-        if (!read_line(in, line)) throw std::runtime_error("missing metadata record");
-    if (!read_line(in, line) || line.rfind("meta ", 0) != 0)
-        throw std::runtime_error("missing metadata record");
-    const std::string meta = line.substr(5);
-
+// Build the FoldLayout from the text of the meta record: chain length = letters in "sequence", sites = n / chain
+// length, "lattice_edges" fills next_to. Strict: anything unexpected throws, so a wrong layout can't mislabel a fold.
+static FoldLayout parse_fold_layout(const std::string& meta, int n) {
     FoldLayout layout;
     // Chain length: count the characters between the quotes of "sequence":"ABC...".
     std::size_t at = value_start(meta, "sequence");
     if (at == std::string::npos || meta[at] != '"')
-        throw std::runtime_error("fold check needs a \"sequence\" string in the meta record");
+        throw std::runtime_error("the meta record needs a \"sequence\" string (the lattice is required)");
     const std::size_t close = meta.find('"', at + 1);
     if (close == std::string::npos || close == at + 1)
         throw std::runtime_error("invalid \"sequence\" in the meta record");
@@ -137,7 +130,7 @@ FoldLayout load_fold_layout(const std::string& path, int n) {
     // "lattice_edges":[[u,v],...] nests two brackets deep: collect every integer, rejecting any other character.
     at = value_start(meta, "lattice_edges");
     if (at == std::string::npos || meta[at] != '[')
-        throw std::runtime_error("fold check needs \"lattice_edges\" in the meta record");
+        throw std::runtime_error("the meta record needs \"lattice_edges\" (the lattice is required)");
     std::vector<long long> numbers;
     int depth = 0;
     for (std::size_t i = at; i < meta.size(); ++i) {

@@ -43,10 +43,10 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
         parameters.checkpoint = parameters.sweeps_per_temperature;
     }
     if (parameters.has_target && !std::isfinite(parameters.target)) throw std::invalid_argument("invalid target");
-    // A supplied fold layout must describe this QUBO, or the validity checks would index out of bounds.
-    if (parameters.fold && (parameters.fold->residues < 1 || parameters.fold->sites < 1 ||
-        static_cast<long long>(parameters.fold->residues) * parameters.fold->sites != problem.n ||
-        parameters.fold->next_to.size() != static_cast<std::size_t>(parameters.fold->sites)))
+    // The lattice must describe this QUBO, or the validity checks would index out of bounds.
+    if (problem.fold.residues < 1 || problem.fold.sites < 1 ||
+        static_cast<long long>(problem.fold.residues) * problem.fold.sites != problem.n ||
+        problem.fold.next_to.size() != static_cast<std::size_t>(problem.fold.sites))
         throw std::invalid_argument("fold layout does not match the QUBO");
     if (!parameters.initial_state.empty()) {
         if (parameters.initial_state.size() != static_cast<std::size_t>(problem.n)) throw std::invalid_argument("initial state has wrong size");
@@ -83,14 +83,11 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
     if (result.target_reached) result.first_hit = {0, 0, elapsed()};
     result.progress.push_back({0, 0, best_energy, elapsed(), current_energy, {}});
 
-    // Optional fold measurements (see fold_tracker.h); they never touch the RNG.
-    FoldTracker tracker;
-    if (parameters.fold) {
-        tracker = fold_tracker_start(*parameters.fold, state);
-        if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))  // the start may already be valid
-            fold_record(tracker, problem, state, {0, 0, elapsed()});
-        fold_fill_validity(tracker, state, result.progress.front());  // the sweep-0 sample pushed above
-    }
+    // Fold measurements (see fold_tracker.h); they never touch the RNG.
+    FoldTracker tracker = fold_tracker_start(problem.fold, state);
+    if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))  // the start may already be valid
+        fold_record(tracker, problem, state, {0, 0, elapsed()});
+    fold_fill_validity(tracker, state, result.progress.front());  // the sweep-0 sample pushed above
 
     for (std::uint64_t sweep = 0; sweep < parameters.sweeps; ++sweep) {
         double current_temperature = temperature_for_sweep(parameters, sweep);
@@ -127,14 +124,12 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
             }
 
             // Fold measurements: keep the tracker's counts current, then log a new record-low valid fold.
-            if (parameters.fold) {
-                fold_update_counts(tracker, bit_index, change);
-                if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))
-                    fold_record(tracker, problem, state, {sweep + 1, attempted_updates, elapsed()});
-            }
+            fold_update_counts(tracker, bit_index, change);
+            if (fold_beats_record(tracker, current_energy) && fold_is_valid_now(tracker, state))
+                fold_record(tracker, problem, state, {sweep + 1, attempted_updates, elapsed()});
         }
 
-        if (parameters.fold) fold_end_of_sweep(tracker, state, current_energy);  // per-sweep sample for the checkpoint stats
+        fold_end_of_sweep(tracker, state, current_energy);  // per-sweep sample for the checkpoint stats
 
         // Store only requested checkpoints and the final sweep, not each flip.
         if ((parameters.checkpoint && (sweep + 1) % parameters.checkpoint == 0) || sweep + 1 == parameters.sweeps) {
@@ -144,8 +139,7 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
                 point.current_energy = energy(problem, state);
                 for (auto bit : state) point.bits += char('0' + bit);
             }
-            if (parameters.fold)
-                fold_fill_checkpoint(tracker, result.progress.back(), problem, state, attempted_updates, accepted_updates);
+            fold_fill_checkpoint(tracker, result.progress.back(), problem, state, attempted_updates, accepted_updates);
         }
     }
 
@@ -158,12 +152,10 @@ AnnealingResult simulated_annealing(const Qubo& problem, const AnnealingParamete
     // once in full before reporting their energies.
     result.best_energy = energy(problem, best_state);
     result.final_energy = energy(problem, state);
-    if (parameters.fold) {
-        result.best_is_valid = is_valid_fold(*parameters.fold, best_state);
-        result.final_is_valid = is_valid_fold(*parameters.fold, state);
-        result.valid_history = tracker.history;
-        result.best_valid_state = tracker.best_state;
-    }
+    result.best_is_valid = is_valid_fold(problem.fold, best_state);
+    result.final_is_valid = is_valid_fold(problem.fold, state);
+    result.valid_history = tracker.history;
+    result.best_valid_state = tracker.best_state;
     result.runtime_seconds = elapsed();
     return result;
 }

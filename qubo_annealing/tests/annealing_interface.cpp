@@ -2,7 +2,7 @@
 #include <cassert>
 #include <future>
 int main() {
-    const Qubo problem{2, 0, {-1, 2}, {{{1, -0.5}}, {{0, -0.5}}}};
+    const Qubo problem{2, 0, {-1, 2}, {{{1, -0.5}}, {{0, -0.5}}}, {1, 2, {{1}, {0}}}};  // lattice: one residue, two adjacent sites
     AnnealingParameters parameters;
     parameters.schedule = "paper25";
     parameters.selection = "random";

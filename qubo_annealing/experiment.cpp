@@ -23,7 +23,6 @@ struct Options {
     std::uint64_t sweeps = 1000, trials = 1, seed = 1, checkpoint = 100;
     double start = 10, end = 0.1, target = 0;
     bool has_target = false;
-    bool fold_metrics = false;      // --fold-metrics: also record valid-fold measurements
     bool checkpoint_set = false;    // --checkpoint was given explicitly
     bool checkpoints_set = false;   // --checkpoints was given
     std::uint64_t checkpoints = 0;  // --checkpoints N: take N evenly spaced samples
@@ -82,7 +81,6 @@ static void usage() {
               << "  --checkpoint N (sample every N sweeps; 0 disables intermediate samples)\n"
               << "  --checkpoints N (N evenly spaced samples; N must divide --sweeps)\n"
               << "  --target ENERGY --output results.jsonl\n"
-              << "  --fold-metrics (folding QUBOs: record validity, lowest valid energy, per-checkpoint stats)\n"
               << "  --energy BITS | --delta BITS INDEX (diagnostic modes)\n";
 }
 
@@ -114,8 +112,6 @@ static Options options(int argc, char** argv) {
             o.input = key;
             continue;
         }
-        // The only option without a value: a plain on/off switch.
-        if (key == "--fold-metrics") { o.fold_metrics = true; continue; }
         if (++a >= argc) throw std::runtime_error("missing value for " + key);
         std::string value = argv[a];
         if (key == "--sweeps") o.sweeps = integer(value);
@@ -214,48 +210,44 @@ static void write_trial(std::ostream& out, const Qubo& q, const Options& o,
             out << ",\"current_energy\":" << point.current_energy
                 << ",\"bits\":" << json_string(point.bits)
                 << ",\"beta\":" << std::pow(1.05, double(point.sweep / o.sweeps_per_temperature));
-        // Only with --fold-metrics. paper25 samples already printed current_energy above.
-        if (o.fold_metrics) {
-            if (point.bits.empty()) out << ",\"current_energy\":" << point.current_energy;
-            out << ",\"valid\":" << (point.valid ? "true" : "false") << ",\"best_valid_energy\":";
-            if (point.has_best_valid) out << point.best_valid_energy;
-            else out << "null";
-            if (point.has_block)
-                out << ",\"acceptance_rate\":" << point.acceptance_rate
-                    << ",\"mean_energy\":" << point.mean_energy
-                    << ",\"valid_fraction\":" << point.valid_fraction;
-        }
+        // Fold measurements. paper25 samples already printed current_energy above.
+        if (point.bits.empty()) out << ",\"current_energy\":" << point.current_energy;
+        out << ",\"valid\":" << (point.valid ? "true" : "false") << ",\"best_valid_energy\":";
+        if (point.has_best_valid) out << point.best_valid_energy;
+        else out << "null";
+        if (point.has_block)
+            out << ",\"acceptance_rate\":" << point.acceptance_rate
+                << ",\"mean_energy\":" << point.mean_energy
+                << ",\"valid_fraction\":" << point.valid_fraction;
         out << '}';
     }
     out << "],\"target_reached\":" << (result.target_reached ? "true" : "false")
         << ",\"first_hit\":";
     if (result.target_reached) write_event(out, result.first_hit);
     else out << "null";
-    // Only with --fold-metrics (default records stay as before). first_valid: first valid fold of any energy;
-    // first_best_valid: lowest valid energy and when first reached; valid_history: every new record low.
-    if (o.fold_metrics) {
-        const auto& history = result.valid_history;
-        out << ",\"best_is_valid\":" << (result.best_is_valid ? "true" : "false")
-            << ",\"final_is_valid\":" << (result.final_is_valid ? "true" : "false")
-            << ",\"best_valid_energy\":";
-        if (history.empty()) out << "null";
-        else out << history.back().energy;
-        out << ",\"best_valid_bits\":";
-        if (history.empty()) out << "null";
-        else out << json_string(bit_string(result.best_valid_state));
-        out << ",\"first_valid\":";
-        if (history.empty()) out << "null";
-        else write_valid_record(out, history.front());
-        out << ",\"first_best_valid\":";
-        if (history.empty()) out << "null";
-        else write_valid_record(out, history.back());
-        out << ",\"valid_history\":[";
-        for (std::size_t i = 0; i < history.size(); ++i) {
-            if (i) out << ',';
-            write_valid_record(out, history[i]);
-        }
-        out << ']';
+    // Fold measurements. first_valid: first valid fold of any energy; first_best_valid: lowest valid energy and
+    // when first reached; valid_history: every new record low.
+    const auto& history = result.valid_history;
+    out << ",\"best_is_valid\":" << (result.best_is_valid ? "true" : "false")
+        << ",\"final_is_valid\":" << (result.final_is_valid ? "true" : "false")
+        << ",\"best_valid_energy\":";
+    if (history.empty()) out << "null";
+    else out << history.back().energy;
+    out << ",\"best_valid_bits\":";
+    if (history.empty()) out << "null";
+    else out << json_string(bit_string(result.best_valid_state));
+    out << ",\"first_valid\":";
+    if (history.empty()) out << "null";
+    else write_valid_record(out, history.front());
+    out << ",\"first_best_valid\":";
+    if (history.empty()) out << "null";
+    else write_valid_record(out, history.back());
+    out << ",\"valid_history\":[";
+    for (std::size_t i = 0; i < history.size(); ++i) {
+        if (i) out << ',';
+        write_valid_record(out, history[i]);
     }
+    out << ']';
     out << ",\"runtime_seconds\":"
         << result.runtime_seconds << "}\n";
 }
@@ -284,9 +276,6 @@ int run_experiment(int argc, char** argv) {
             return 0;
         }
         if (!o.initial.empty()) parse_bits(o.initial, q.n);
-        // Read the lattice from the input's meta line only when fold metrics were requested.
-        FoldLayout layout;
-        if (o.fold_metrics) layout = load_fold_layout(o.input, q.n);
         AnnealingParameters parameters;
         parameters.schedule = o.schedule;
         parameters.selection = o.selection;
@@ -297,7 +286,6 @@ int run_experiment(int argc, char** argv) {
         parameters.end = o.end;
         parameters.target = o.target;
         parameters.has_target = o.has_target;
-        parameters.fold = o.fold_metrics ? &layout : nullptr;
         if (!o.initial.empty()) parameters.initial_state = parse_bits(o.initial, q.n);
         for (std::uint64_t trial = 0; trial < o.trials; ++trial) {
             const auto result = simulated_annealing(q, parameters, o.seed + trial);

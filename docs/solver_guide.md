@@ -70,15 +70,17 @@ state; this test is a practical reentrancy check, not a race-detector proof.
 
 ## Fold measurements (2026-11-10)
 
-`--fold-metrics` adds validity-aware measurements without changing the algorithm. `fold_tracker.h/.cpp`
-holds the state (per-residue bit counts, valid-fold history, per-checkpoint statistics) behind plain
-functions; `simulated_annealing()` makes a few opt-in calls and draws nothing extra from the RNG, so
-trajectories are unchanged. The O(n) validity scan runs only when every residue has exactly one bit set;
-timed overhead was within about 5%. Each chain owns its tracker and there are no mutable globals, so
-concurrent chains remain independent. `analysis/ground_state.py` claims a ground state only for proven
-valid-fold minima, never for witness references.
+The solver always records validity-aware measurements, and the loader requires the lattice (`sequence` and
+`lattice_edges`) in the input's meta record, so it targets protein-folding QUBOs rather than arbitrary ones.
+`fold_tracker.h/.cpp` holds the state (per-residue bit counts, valid-fold history, per-checkpoint statistics)
+behind plain functions; `simulated_annealing()` calls them and draws nothing extra from the RNG, so
+trajectories are unchanged. The O(n) validity scan runs only when every residue has exactly one bit set.
+Each chain owns its tracker and there are no mutable globals, so concurrent chains remain independent.
+`analysis/ground_state.py` claims a ground state only for proven valid-fold minima, never for witness
+references.
 
-Verification: default output matches the previous build on 4 cases (geometric, linear, paper25; fold8 and
-fold24). Fold-metrics output is identical before and after moving the logic into `fold_tracker` on 7 cases
-covering all four schedules and MJ5. The C++ validity check agrees with `qubo_bench.model.validate` on
-fold8 and fold24, the C++ build has no warnings, and 12 solver tests plus the interface check pass (WSL).
+Verification: every field the previous build wrote is unchanged on 4 cases (geometric, linear, paper25;
+fold8 and fold24), and the output is identical to the earlier opt-in fold metrics on 7 cases covering all
+four schedules and MJ5. The C++ validity check agrees with `qubo_bench.model.validate` on fold8 and fold24,
+the C++ build has no warnings, and 12 solver tests plus the interface check pass (WSL). Timed cost against
+the previous build was 1-10% (largest on the 64-bit fold8, whose runs last about 40 ms).

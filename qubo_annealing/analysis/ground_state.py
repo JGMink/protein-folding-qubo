@@ -1,4 +1,4 @@
-"""Ground-state success per trial, from logs written with --fold-metrics.
+"""Ground-state success per trial, from qubo_anneal logs.
 
 The ground state is the proven minimum energy over valid folds. It is read from the
 `reference` metadata of each record's input file, and only when that reference is a proven
@@ -41,7 +41,7 @@ def blank(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("logs", nargs="+", type=Path, help="JSONL logs written with --fold-metrics")
+    parser.add_argument("logs", nargs="+", type=Path, help="JSONL logs from qubo_anneal")
     args = parser.parse_args()
     references = {}
     writer = csv.writer(sys.stdout)
@@ -54,7 +54,7 @@ def main():
                     continue
                 record = json.loads(line)
                 if "valid_history" not in record:
-                    parser.error(f"{path}:{line_number}: no fold metrics; rerun with --fold-metrics")
+                    parser.error(f"{path}:{line_number}: no fold metrics in this record (log from an older build?)")
                 source = Path(record["input"])
                 if source not in references:
                     try:
