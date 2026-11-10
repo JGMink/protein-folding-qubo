@@ -1,6 +1,6 @@
 # Serial solver reading list
 
-Focused sources for this solver; PT papers provide background, not implemented features.
+Focused sources for this solver, with background reading on replica exchange.
 BibTeX is in [project_references.bib](project_references.bib).
 
 - [Folding lattice proteins confined on minimal grids using a quantum-inspired encoding (2025)](https://doi.org/10.1103/8n7p-7lh2) — Source model and MJ-48 protocol.

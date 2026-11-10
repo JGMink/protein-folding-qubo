@@ -14,7 +14,7 @@ struct FoldLayout {
 };
 
 // The problem: E(x) = offset + sum_i diagonal[i]*x_i + sum_{i<j} Q_ij*x_i*x_j, with each x_i in {0,1}.
-// Read-only after loading, so replicas (or MPI ranks, each loading its own copy) can share it.
+// Read-only after loading, so one copy can be shared safely between runs.
 // (`std::vector` is a heap array that knows its length; `neighbors` is a ragged array of (j, Q_ij) pairs.)
 struct Qubo {
     int n = 0;                       // number of binary variables (bits)

@@ -2,13 +2,11 @@
 
 Audit date: 2026-11-03 (America/New_York).
 
-**Recommendation: GO for beginning MPI parallel-tempering development on the
-verified numerical model.** The source-derived witnesses, interaction matrix,
-constraint polynomial, and serial arithmetic pass the checks below. **Published
-SA success rates have not been reproduced:** this is an eight-trial pilot, not
-a statistical replication. Keep this serial protocol as the baseline before
-making performance claims. No MPI/PT was implemented, and nothing was committed
-or pushed. Existing uncommitted work was preserved.
+The source-derived witnesses, interaction matrix, constraint polynomial, and
+serial arithmetic pass the checks below. **Published SA success rates have not
+been reproduced:** this is an eight-trial pilot, not a statistical replication.
+Keep this serial protocol as the baseline before making performance claims.
+Nothing was committed or pushed. Existing uncommitted work was preserved.
 
 ## Scope and initial findings
 
@@ -237,8 +235,7 @@ and stochastic trapping are plausible, not established diagnoses. No claim that
 larger penalties explain a measured failure is made, since no controlled
 penalty-ablation experiment was run.
 
-Begin MPI PT against this verified model and retained serial baseline. Before
-claiming paper-equivalent SA success, obtain the authors' bit-selection details
+Before claiming paper-equivalent SA success, obtain the authors' bit-selection details
 and run a separately costed larger seed set/longer budget with **final-state
 feasibility** as the success criterion. Optional future improvements include
 tracking the best feasible state during annealing and incremental penalty counts;

@@ -35,7 +35,7 @@ and progress records. Mathematical utilities have no mutable globals or static
 work buffers. Callers must provide a structurally valid QUBO (valid neighbor
 indices, symmetric off-diagonal entries) and correctly sized binary states to
 low-level utilities; the loader establishes these invariants. Callers must not
-mutate a shared QUBO while another call reads it. No parallel execution is implemented.
+mutate a shared QUBO while another call reads it.
 
 The ZIP dated 2026-11-02 is a repository/source snapshot, containing existing
 README/reference/developer documents and a background annealing PDF. It was
