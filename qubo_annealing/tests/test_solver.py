@@ -1,10 +1,13 @@
 """Standalone checks of fixed inputs, solver arithmetic, and saved folds."""
 
+import csv
 import hashlib
+import io
 import json
 from pathlib import Path
 import random
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -231,6 +234,161 @@ int main(int argc, char** argv) {
             self.assertEqual(a['accepted_updates'],16)
             self.assertNotEqual(a['final_bits'],'1'*16)
             self.assertEqual(b['final_bits'],'1'*16)
+
+    # Two residues on two adjacent sites; variable = residue * 2 + site, so 1001 and 0110 are the
+    # only folds (energy 0). `meta` is the fourth line of the file.
+    TWO_RESIDUE_BODY = ('QUBO1\nn 4\noffset 2\nMETA\n'
+                        'q 0 0 -1\nq 1 1 -1\nq 2 2 -1\nq 3 3 -1\n'
+                        'q 0 1 2\nq 2 3 2\nq 0 2 1\nq 1 3 1\n')
+
+    def two_residue_file(self, directory, name, reference=None):
+        meta = {"sequence": "AB", "lattice_edges": [[0, 1]]}
+        if reference is not None:
+            meta["reference"] = reference
+        path = Path(directory) / name
+        path.write_text(self.TWO_RESIDUE_BODY.replace("META", "meta " + json.dumps(meta)), encoding="utf-8")
+        return path
+
+    def test_checkpoints_option_spaces_samples_evenly(self):
+        path = ROOT / "benchmarks/fold8.qubo"
+        for schedule in ("fixed", "linear", "geometric"):
+            record = self.call(path, "--schedule", schedule, "--temp-start", 1, "--temp-end", 1,
+                               "--sweeps", 10, "--checkpoints", 5)[0]
+            self.assertEqual(record["checkpoint"], 2)
+            self.assertEqual([point["sweep"] for point in record["progress"]], [0, 2, 4, 6, 8, 10])
+        for bad in (("--sweeps", 10, "--checkpoints", 3),                  # does not divide evenly
+                    ("--sweeps", 10, "--checkpoints", 0),
+                    ("--sweeps", 10, "--checkpoints", 5, "--checkpoint", 2),
+                    ("--schedule", "paper25", "--checkpoints", 5)):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.call(path, *bad)
+
+    def test_fold_metrics_deterministic_two_residue_case(self):
+        # A near-zero temperature makes every move deterministic. From 0000 the state after
+        # sweep 1 is 1010 (both residues on site 0), after sweep 2 it is 0110, the first fold
+        # (reached on flip attempt 6), and sweep 3 changes nothing.
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.two_residue_file(directory, "two.qubo")
+            options = ("--initial", "0000", "--schedule", "fixed", "--temp-start", 0.001,
+                       "--sweeps", 3, "--checkpoints", 3)
+            record = self.call(path, *options, "--fold-metrics")[0]
+            plain = self.call(path, *options)[0]
+        self.assertNotIn("valid_history", plain)
+        self.assertNotIn("valid", plain["progress"][0])
+        history = record["valid_history"]
+        self.assertEqual(len(history), 1)
+        self.assertEqual((history[0]["energy"], history[0]["sweep"], history[0]["attempted_updates"]), (0, 2, 6))
+        self.assertEqual(record["first_valid"], history[0])
+        self.assertEqual(record["first_best_valid"], history[0])
+        self.assertEqual(record["best_valid_energy"], 0)
+        self.assertEqual(record["best_valid_bits"], "0110")
+        self.assertTrue(record["best_is_valid"] and record["final_is_valid"])
+        points = record["progress"]
+        self.assertEqual([p["sweep"] for p in points], [0, 1, 2, 3])
+        self.assertEqual([p["current_energy"] for p in points], [2, 1, 0, 0])
+        self.assertEqual([p["valid"] for p in points], [False, False, True, True])
+        self.assertEqual([p["best_valid_energy"] for p in points], [None, None, 0, 0])
+        self.assertNotIn("acceptance_rate", points[0])
+        self.assertEqual([p["acceptance_rate"] for p in points[1:]], [0.5, 0.5, 0.0])
+        self.assertEqual([p["mean_energy"] for p in points[1:]], [1, 0, 0])
+        self.assertEqual([p["valid_fraction"] for p in points[1:]], [0, 1, 1])
+        # Measuring must not change the trajectory.
+        for field in ("attempted_updates", "accepted_updates", "best_bits", "final_bits",
+                      "best_energy", "final_energy"):
+            self.assertEqual(record[field], plain[field])
+
+    def test_fold_metrics_start_states_and_missing_metadata(self):
+        path = ROOT / "benchmarks/fold8.qubo"
+        n, _, metadata, _ = read_qubo(path)
+        sites = len(metadata["coordinates"])
+        reference = ["0"] * n
+        for residue, site in enumerate(metadata["reference"]["path"]):
+            reference[residue * sites + site] = "1"
+        reference = "".join(reference)
+        # A known valid fold as the starting state is recorded at sweep 0.
+        record = self.call(path, "--initial", reference, "--sweeps", 0, "--fold-metrics")[0]
+        self.assertEqual(len(record["valid_history"]), 1)
+        self.assertEqual(record["valid_history"][0]["sweep"], 0)
+        self.assertAlmostEqual(record["best_valid_energy"], -2.84, places=6)
+        self.assertEqual(record["best_valid_bits"], reference)
+        self.assertTrue(record["progress"][0]["valid"])
+        # All zeros is not a fold, so nothing valid has been seen.
+        record = self.call(path, "--initial", "0" * n, "--sweeps", 0, "--fold-metrics")[0]
+        self.assertEqual(record["valid_history"], [])
+        self.assertIsNone(record["best_valid_energy"])
+        self.assertIsNone(record["first_valid"])
+        self.assertFalse(record["best_is_valid"])
+        self.assertFalse(record["progress"][0]["valid"])
+        # Without lattice metadata the request fails with an error instead of guessing.
+        with tempfile.TemporaryDirectory() as directory:
+            bare = Path(directory) / "bare.qubo"
+            bare.write_text("QUBO1\nn 1\noffset 0\nmeta {}\nq 0 0 1\n", encoding="utf-8")
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.call(bare, "--fold-metrics")
+
+    def test_fold_metrics_match_independent_python_validation(self):
+        path = ROOT / "benchmarks/fold8.qubo"
+        n, offset, metadata, terms = read_qubo(path)
+        proven_minimum = metadata["reference"]["energy"]
+        found = 0
+        for temperature_end in (0.1, 3.0):  # a cold run usually folds; a hotter one often does not
+            for record in self.call(path, "--sweeps", 300, "--trials", 3, "--seed", 5, "--temp-start", 10,
+                                    "--temp-end", temperature_end, "--checkpoints", 6, "--fold-metrics"):
+                self.assertEqual([p["sweep"] for p in record["progress"]], [0, 50, 100, 150, 200, 250, 300])
+                for prefix in ("best", "final"):
+                    self.assertEqual(record[f"{prefix}_is_valid"],
+                                     validate_fold(record[f"{prefix}_bits"], metadata)[0])
+                history = record["valid_history"]
+                energies = [entry["energy"] for entry in history]
+                self.assertEqual(energies, sorted(set(energies), reverse=True))  # strictly decreasing
+                # The tracker must not miss a valid fold that the final states prove exists.
+                if record["best_is_valid"]:
+                    self.assertAlmostEqual(record["best_valid_energy"], record["best_energy"], places=6)
+                if record["final_is_valid"]:
+                    self.assertLessEqual(record["best_valid_energy"], record["final_energy"] + 1e-6)
+                if not history:
+                    self.assertIsNone(record["best_valid_energy"])
+                    continue
+                found += 1
+                self.assertEqual(record["best_valid_energy"], energies[-1])
+                valid, contact = validate_fold(record["best_valid_bits"], metadata)
+                self.assertTrue(valid)
+                self.assertAlmostEqual(contact, record["best_valid_energy"], places=6)
+                self.assertAlmostEqual(energy(offset, terms, record["best_valid_bits"]),
+                                       record["best_valid_energy"], places=6)
+                self.assertGreaterEqual(record["best_valid_energy"], proven_minimum - 1e-6)
+        self.assertGreater(found, 0)
+
+    def test_ground_state_analysis_uses_only_proven_references(self):
+        script = ROOT / "analysis/ground_state.py"
+        references = {"proven": {"category": "feasible_fold_minimum", "energy": 0.0},
+                      "witness": {"category": "known_valid_configuration", "energy": 0.0}}
+        with tempfile.TemporaryDirectory() as directory:
+            rows = {}
+            for name, reference in references.items():
+                path = self.two_residue_file(directory, f"{name}.qubo", reference)
+                log = Path(directory) / f"{name}.jsonl"
+                self.call(path, "--initial", "0000", "--schedule", "fixed", "--temp-start", 0.001,
+                          "--sweeps", 3, "--fold-metrics", "--output", log)
+                result = subprocess.run([sys.executable, str(script), str(log)],
+                                        check=True, capture_output=True, text=True)
+                rows[name] = list(csv.DictReader(io.StringIO(result.stdout)))[0]
+            plain = Path(directory) / "plain.jsonl"
+            self.call(path, "--sweeps", 1, "--output", plain)
+            rejected = subprocess.run([sys.executable, str(script), str(plain)], capture_output=True, text=True)
+        proven, witness = rows["proven"], rows["witness"]
+        self.assertEqual((proven["ground_state_found"], proven["ground_state_sweep"],
+                          proven["ground_state_attempted_updates"]), ("True", "2", "6"))
+        self.assertEqual(float(proven["ground_state_energy"]), 0)
+        self.assertEqual(proven["reference_category"], "feasible_fold_minimum")
+        self.assertEqual((proven["valid_found"], proven["first_valid_sweep"]), ("True", "2"))
+        self.assertEqual(proven["below_reference_investigate"], "False")
+        # A witness is not proven optimal: valid folds are still reported, but no ground-state claim.
+        self.assertEqual(witness["valid_found"], "True")
+        self.assertEqual(witness["ground_state_energy"], "")
+        self.assertEqual(witness["ground_state_found"], "")
+        self.assertNotEqual(rejected.returncode, 0)  # a log without fold metrics is refused
+
 
 
 if __name__ == "__main__":

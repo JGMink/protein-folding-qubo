@@ -16,7 +16,7 @@ parameters.sweeps = 1000;
 AnnealingResult result = simulated_annealing(problem, parameters, 42);
 ```
 
-Link only `annealing.cpp` and `qubo.cpp` to use the algorithm independently.
+Link only `annealing.cpp`, `fold_tracker.cpp` and `qubo.cpp` to use the algorithm independently.
 Parameters use familiar strings for schedule/selection and a byte vector for an
 optional initial state (empty requests seeded initialization). `paper25` normalizes
 total sweeps and checkpoint spacing inside the algorithm as well as in the CLI.
@@ -67,3 +67,18 @@ The existing pilot logs remain historical audit evidence. Newly timed comparison
 run in memory and do not replace them. Runtime measurements are not controlled
 performance benchmarks. Independent calls have no shared mutable implementation
 state; this test is a practical reentrancy check, not a race-detector proof.
+
+## Fold measurements (2026-11-10)
+
+`--fold-metrics` adds validity-aware measurements without changing the algorithm. `fold_tracker.h/.cpp`
+holds the state (per-residue bit counts, valid-fold history, per-checkpoint statistics) behind plain
+functions; `simulated_annealing()` makes a few opt-in calls and draws nothing extra from the RNG, so
+trajectories are unchanged. The O(n) validity scan runs only when every residue has exactly one bit set;
+timed overhead was within about 5%. Each chain owns its tracker and there are no mutable globals, so
+concurrent chains remain independent. `analysis/ground_state.py` claims a ground state only for proven
+valid-fold minima, never for witness references.
+
+Verification: default output matches the previous build on 4 cases (geometric, linear, paper25; fold8 and
+fold24). Fold-metrics output is identical before and after moving the logic into `fold_tracker` on 7 cases
+covering all four schedules and MJ5. The C++ validity check agrees with `qubo_bench.model.validate` on
+fold8 and fold24, the C++ build has no warnings, and 12 solver tests plus the interface check pass (WSL).

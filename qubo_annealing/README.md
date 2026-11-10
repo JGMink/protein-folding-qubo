@@ -9,6 +9,7 @@ and [curated papers](../docs/serial_references.md) for details.
 | `main.cpp` | Short executable entry point |
 | `experiment.h/.cpp` | CLI validation, diagnostics, trials, JSONL output |
 | `annealing.h/.cpp` | Independent parameters, result, and Metropolis annealing |
+| `fold_tracker.h/.cpp` | Optional fold-validity bookkeeping behind `--fold-metrics` |
 | `qubo.h/.cpp` | Sparse QUBO loading, energy, local fields, flip updates |
 | `Makefile` | C++17 optimized build |
 | `tests/test_solver.py` | Arithmetic, reproducibility, witnesses, protocol checks |
@@ -17,6 +18,7 @@ and [curated papers](../docs/serial_references.md) for details.
 | `run/` | Also retains historical smoke and audit scripts |
 | `benchmarks/` | Fixed fold8/fold24/fold32 inputs |
 | `analysis/summarize.py` | Summarize experiment logs |
+| `analysis/ground_state.py` | Per-trial ground-state first passage from `--fold-metrics` logs |
 
 From the repository root under Linux or WSL (C++17, make, Bash, Python 3):
 
@@ -93,6 +95,25 @@ Best energy/configuration means the incumbent retained during the trajectory;
 final means the state after all updates. They can differ. Reported state energies
 are recomputed in full, including the QUBO offset. A numeric target is an energy
 threshold, not a feasibility or optimality certificate; hitting it does not stop a run.
+`--checkpoint N` samples every N sweeps; `--checkpoints N` instead takes N evenly spaced
+samples (N must divide `--sweeps`), for example `--schedule fixed --checkpoints 25` lines up
+with the 25 `paper25` stages. `paper25` always samples once per temperature.
+
+Add `--fold-metrics` (any schedule; needs `sequence` and `lattice_edges` in the input
+metadata) for validity-aware measurements. A valid fold has one site per residue, no shared
+sites, and consecutive residues on adjacent sites. Each checkpoint then also records `valid`,
+`best_valid_energy`, and, for the sweeps since the previous checkpoint, `acceptance_rate`,
+`mean_energy`, and `valid_fraction` (from end-of-sweep states). Each record gains
+`best_is_valid`, `final_is_valid`, `best_valid_energy`, `best_valid_bits`, `first_valid` (the
+first valid fold of any energy), `first_best_valid` (when the lowest valid energy was first
+reached), and `valid_history` (every new lowest valid energy with its sweep, attempted
+updates, and seconds). Existing fields keep their meaning and the trajectory is unchanged, so
+runs with and without the flag agree. Without the flag the output is exactly as before.
+
+`python3 qubo_annealing/analysis/ground_state.py LOG...` prints one CSV row per trial: whether
+and when the proven minimum over valid folds was reached. It takes that minimum from the
+input file's reference only when the reference is a proven minimum (`feasible_fold_minimum`
+or `complete_qubo_global_minimum`). Witnesses such as `fold32` get no ground-state claim.
 
 One sweep attempts N flips. Sequential selection visits each bit once; random
 selection draws N times with replacement. Linear/geometric temperatures change
